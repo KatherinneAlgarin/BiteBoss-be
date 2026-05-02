@@ -1,0 +1,22 @@
+# =============================================
+# VARIABLES DE ENTORNO - NUNCA subir al repo
+.env
+.env.local
+.env.development
+.env.production
+
+# DEPENDENCIAS
+node_modules/
+
+# TYPESCRIPT - Archivos compilados
+dist/
+build/
+
+logs/
+*.log
+npm-debug.log*
+
+
+.vscode/
+.idea/
+*.suo
