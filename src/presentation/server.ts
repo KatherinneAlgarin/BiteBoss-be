@@ -1,4 +1,4 @@
-import express, { Router } from 'express';
+import express, { Router, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { envs } from '../config/envs';
 
@@ -21,23 +21,23 @@ export class Server {
   }
 
   async start() {
-
-    // CORS
     this.app.use(cors({
       origin: envs.ALLOWED_ORIGINS,
       credentials: true,
     }));
 
-    // Middlewares
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Rutas
     this.app.use(this.routes);
 
-    // Iniciar servidor
+    // Manejo global de errores — no expone detalles internos
+    this.app.use((_err: Error, _req: Request, res: Response, _next: NextFunction) => {
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    });
+
     this.serverListener = this.app.listen(this.port, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${this.port}`);
+      console.log(`Servidor corriendo en http://localhost:${this.port}`);
     });
   }
 
