@@ -9,6 +9,7 @@ export const envs = {
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET || '',
 
   // Seguridad
   JWT_SECRET: process.env.JWT_SECRET || '',
@@ -19,7 +20,7 @@ export const envs = {
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || [],
 };
 
-const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET'] as const;
+const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET', 'SUPABASE_JWT_SECRET'] as const;
 
 for (const key of required) {
   if (!envs[key]) {
