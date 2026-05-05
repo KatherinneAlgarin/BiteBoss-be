@@ -7,7 +7,7 @@ import type { AuthPayload, AuthResponse, LoginDto } from '../domain/interfaces/a
 export class AuthService {
 
   async login({ email, password }: LoginDto): Promise<AuthResponse> {
-    const { error: authError } = await supabaseAuth.auth.signInWithPassword({ email, password });
+    const { data: authData, error: authError } = await supabaseAuth.auth.signInWithPassword({ email, password });
 
     if (authError) throw new AppError('Credenciales inválidas', 401);
 
@@ -36,6 +36,7 @@ export class AuthService {
     if (!asignacion) throw new AppError('El usuario no tiene sucursal ni rol asignado', 403);
 
     const payload: AuthPayload = {
+      auth_id:             authData.user.id,
       id_usuario:          usuario.id_usuario,
       nombre:              usuario.nombre,
       email:               usuario.email,

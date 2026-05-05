@@ -4,14 +4,15 @@ export interface LoginDto {
 }
 
 export interface AuthPayload {
-  id_usuario: number;
-  nombre: string;
+  auth_id: string;// UUID de Supabase (sub)
+  id_usuario?: number; // desde app_metadata
+  nombre?: string;
   email: string;
-  id_usuario_sucursal: number;
-  id_rol: number;
+  id_usuario_sucursal?: number;
+  id_rol?: number;
   rol: string;
   id_sucursal: number;
-  sucursal: string;
+  sucursal?: string;
 }
 
 export interface AuthResponse {

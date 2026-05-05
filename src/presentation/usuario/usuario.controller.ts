@@ -6,9 +6,11 @@ import { AppError } from '../../helpers/app-error';
 export class UsuarioController {
   constructor(private readonly usuarioService = new UsuarioService()) {}
 
-  async listarUsuarios(_req: Request, res: Response): Promise<void> {
+  async listarUsuarios(req: Request, res: Response): Promise<void> {
     try {
-      const usuarios = await this.usuarioService.listarUsuarios();
+      const esAdmin = req.usuario?.rol === 'admin';
+      const id_sucursal = req.usuario?.id_sucursal;
+      const usuarios = await this.usuarioService.listarUsuarios(id_sucursal, esAdmin);
       res.json(usuarios);
     } catch (err) {
       if (err instanceof AppError) {
