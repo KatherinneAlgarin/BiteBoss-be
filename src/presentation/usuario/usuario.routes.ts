@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { UsuarioController } from './usuario.controller';
 import { authenticate } from '../../middleware/authenticate';
+import { authorizeRoles } from '../../middleware/authorize-roles';
 
 export class UsuarioRoutes {
 
@@ -8,13 +9,12 @@ export class UsuarioRoutes {
     const router = Router();
     const controller = new UsuarioController();
 
-    // Todas las rutas requieren autenticación (solo admins acceden al módulo de usuarios)
     router.use(authenticate);
 
-    router.get('/',           (req, res) => controller.listarUsuarios(req, res));
-    router.get('/roles',      (req, res) => controller.listarRoles(req, res));
-    router.get('/sucursales', (req, res) => controller.listarSucursales(req, res));
-    router.post('/',          (req, res) => controller.crearUsuario(req, res));
+    router.get('/', (req, res) => controller.listarUsuarios(req, res));
+    router.get('/roles', authorizeRoles('admin'), (req, res) => controller.listarRoles(req, res));
+    router.get('/sucursales', authorizeRoles('admin'), (req, res) => controller.listarSucursales(req, res));
+    router.post('/', authorizeRoles('admin'), (req, res) => controller.crearUsuario(req, res));
 
     return router;
   }
