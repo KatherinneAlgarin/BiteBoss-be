@@ -3,6 +3,10 @@ export interface LoginDto {
   password: string;
 }
 
+export interface OlvidarContrasenaDto {
+  email: string;
+}
+
 export interface AuthPayload {
   auth_id: string;// UUID de Supabase (sub)
   id_usuario?: number; // desde app_metadata

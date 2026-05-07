@@ -1,7 +1,10 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
+import type { AuthPayload } from '../domain/interfaces/auth.interface';
 import type {
+  ActualizarPerfilDto,
   CrearUsuarioDto,
+  PerfilResponse,
   RolItem,
   SucursalItem,
   UsuarioCreadoResponse,
@@ -148,5 +151,52 @@ export class UsuarioService {
     sucursal: sucursalNombre,
   };
 }
+
+  obtenerPerfil(usuario: AuthPayload): PerfilResponse {
+    return {
+      nombre: usuario.nombre ?? '',
+      email:  usuario.email,
+    };
+  }
+
+  async actualizarPerfil(usuario: AuthPayload, dto: ActualizarPerfilDto): Promise<PerfilResponse> {
+    const { nombre, nuevaContrasena } = dto;
+
+    if (nombre) {
+      const { error: dbError } = await supabase
+        .from('usuario')
+        .update({ nombre })
+        .eq('id_usuario', usuario.id_usuario!);
+
+      if (dbError) throw new AppError('Error al actualizar el nombre', 500);
+
+      const { error: metaError } = await supabase.auth.admin.updateUserById(usuario.auth_id, {
+        app_metadata: {
+          id_usuario:          usuario.id_usuario,
+          nombre,
+          rol:                 usuario.rol,
+          id_rol:              usuario.id_rol,
+          id_sucursal:         usuario.id_sucursal,
+          id_usuario_sucursal: usuario.id_usuario_sucursal,
+          sucursal:            usuario.sucursal,
+        },
+      });
+
+      if (metaError) throw new AppError('Error al actualizar el nombre', 500);
+    }
+
+    if (nuevaContrasena) {
+      const { error: passError } = await supabase.auth.admin.updateUserById(usuario.auth_id, {
+        password: nuevaContrasena,
+      });
+
+      if (passError) throw new AppError('Error al actualizar la contraseña', 500);
+    }
+
+    return {
+      nombre: nombre ?? usuario.nombre ?? '',
+      email:  usuario.email,
+    };
+  }
 
 }

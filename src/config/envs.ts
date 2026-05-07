@@ -18,6 +18,9 @@ export const envs = {
 
   // CORS
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || [],
+
+  // Frontend
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
 const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET', 'SUPABASE_JWT_SECRET'] as const;
