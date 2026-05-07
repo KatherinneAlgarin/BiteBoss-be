@@ -35,3 +35,13 @@ export interface UsuarioCreadoResponse {
   rol: string;
   sucursal: string;
 }
+
+export interface ActualizarPerfilDto {
+  nombre?: string;
+  nuevaContrasena?: string;
+}
+
+export interface PerfilResponse {
+  nombre: string;
+  email: string;
+}

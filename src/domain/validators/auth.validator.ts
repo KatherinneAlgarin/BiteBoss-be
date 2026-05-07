@@ -1,4 +1,4 @@
-import type { LoginDto } from '../interfaces/auth.interface';
+import type { LoginDto, OlvidarContrasenaDto } from '../interfaces/auth.interface';
 
 export function validateLogin(body: any): { data?: LoginDto; error?: string } {
   const { email, password } = body ?? {};
@@ -21,4 +21,19 @@ export function validateLogin(body: any): { data?: LoginDto; error?: string } {
   }
 
   return { data: { email: email.trim().toLowerCase(), password } };
+}
+
+export function validateOlvidarContrasena(body: any): { data?: OlvidarContrasenaDto; error?: string } {
+  const { email } = body ?? {};
+
+  if (!email || typeof email !== 'string') {
+    return { error: 'El email es requerido' };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { error: 'El email no tiene un formato válido' };
+  }
+
+  return { data: { email: email.trim().toLowerCase() } };
 }
