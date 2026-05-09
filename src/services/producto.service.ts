@@ -74,14 +74,28 @@ export class ProductoService {
   }
 
   async crearProducto(dto: ProductoDto): Promise<ProductoDto> {
+    const { id_sucursal, ...productoPayload } = dto;
+
     const { data, error } = await supabase
       .from('producto')
-      .insert(dto)
+      .insert(productoPayload)
       .select()
       .single();
 
     if (error) {
       throw new AppError('Error al crear producto', 500);
+    }
+
+    const { error: spError } = await supabase
+      .from('sucursal_producto')
+      .insert({
+        id_producto: data.id_producto,
+        id_sucursal,
+        activo: true,
+      });
+
+    if (spError) {
+      throw new AppError('Error al asociar producto con sucursal', 500);
     }
 
     return data;
@@ -114,16 +128,10 @@ export class ProductoService {
   }
 
   async listarCategorias(id_sucursal?: number): Promise<CategoriaDto[]> {
-    let query = supabase
+    const { data, error } = await supabase
       .from('categoria')
       .select('*')
       .eq('activo', true);
-
-    if (id_sucursal) {
-      query = query.eq('id_sucursal', id_sucursal);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       throw new AppError('Error al listar categorías', 500);
