@@ -13,7 +13,6 @@ export class OrdenRoutes {
 
     router.get('/', (req, res) => controller.listarOrdenes(req, res));
     router.get('/:id', (req, res) => controller.obtenerOrden(req, res));
-    router.post('/', (req, res) => controller.crearOrden(req, res));
     router.patch('/:id', (req, res) => controller.actualizarOrden(req, res));
     router.delete('/:id', authorizeRoles('admin', 'gerente'), (req, res) => controller.cancelarOrden(req, res));
 

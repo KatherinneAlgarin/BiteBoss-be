@@ -47,15 +47,6 @@ export interface OrdenListItem {
   nombre_cliente: string;
 }
 
-export interface CrearOrdenDto {
-  id_sucursal: number;
-  tipo_orden: TipoOrden;
-  id_mesa?: number;
-  nombre_cliente: string;
-  apellido_cliente: string;
-  detalles: CrearOrdenDetalleDto[];
-}
-
 export interface CrearOrdenDetalleDto {
   id_producto: number;
   cantidad: number;
