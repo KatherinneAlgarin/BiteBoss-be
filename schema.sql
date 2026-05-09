@@ -74,6 +74,16 @@ CREATE TABLE producto (
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE proveedor (
+    id_proveedor SERIAL PRIMARY KEY,
+    nombre VARCHAR(200) NOT NULL,
+    email VARCHAR(255),
+    telefono VARCHAR(20),
+    direccion TEXT,
+    activo BOOLEAN DEFAULT true,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE pedido (
     id_pedido SERIAL PRIMARY KEY,
     id_usuario INTEGER REFERENCES usuario(id_usuario),
@@ -167,6 +177,10 @@ INSERT INTO producto (nombre, descripcion, precio, id_categoria, id_sucursal) VA
 ('Tiramisú', 'Postre italiano con café', 8.00, 3, 1),
 ('Ensalada César', 'Ensalada con pollo y aderezo césar', 10.00, 4, 1);
 
+INSERT INTO proveedor (nombre, email, telefono, direccion) VALUES
+('Proveedor ABC', 'contacto@proveedorabc.com', '555-1001', 'Calle Distribuidora 456'),
+('Frutas y Verduras XYZ', 'ventas@frutasxyz.com', '555-1002', 'Avenida Agrícola 789');
+
 -- Create indexes for better performance
 CREATE INDEX idx_pedido_sucursal ON pedido(id_sucursal);
 CREATE INDEX idx_pedido_estado ON pedido(estado_operativo);
@@ -174,3 +188,4 @@ CREATE INDEX idx_pedido_producto_pedido ON pedido_producto(id_pedido);
 CREATE INDEX idx_pago_pedido_pedido ON pago_pedido(id_pedido);
 CREATE INDEX idx_producto_sucursal ON producto(id_sucursal);
 CREATE INDEX idx_usuario_sucursal ON usuario(id_sucursal);
+CREATE INDEX idx_proveedor_activo ON proveedor(activo);
