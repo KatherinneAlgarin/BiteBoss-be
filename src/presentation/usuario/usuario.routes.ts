@@ -11,6 +11,9 @@ export class UsuarioRoutes {
 
     router.use(authenticate);
 
+    router.get('/perfil',  (req, res) => controller.obtenerPerfil(req, res));
+    router.patch('/perfil', (req, res) => controller.actualizarPerfil(req, res));
+
     router.get('/', (req, res) => controller.listarUsuarios(req, res));
     router.get('/roles', authorizeRoles('admin'), (req, res) => controller.listarRoles(req, res));
     router.get('/sucursales', authorizeRoles('admin'), (req, res) => controller.listarSucursales(req, res));

@@ -16,7 +16,7 @@ logs/
 *.log
 npm-debug.log*
 
-
+.claude/
 .vscode/
 .idea/
 *.suo

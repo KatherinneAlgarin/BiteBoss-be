@@ -1,4 +1,4 @@
-import type { CrearUsuarioDto } from '../interfaces/usuario.interface';
+import type { ActualizarPerfilDto, CrearUsuarioDto } from '../interfaces/usuario.interface';
 
 export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error?: string } {
   const { nombre, email, password, id_rol, id_sucursal } = body ?? {};
@@ -39,6 +39,38 @@ export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error
       password,
       id_rol,
       id_sucursal,
+    },
+  };
+}
+
+const contrasenaRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+export function validateActualizarPerfil(body: any): { data?: ActualizarPerfilDto; error?: string } {
+  const { nombre, nuevaContrasena } = body ?? {};
+
+  const tieneNombre = nombre !== undefined;
+  const tieneContrasena = nuevaContrasena !== undefined;
+
+  if (!tieneNombre && !tieneContrasena) {
+    return { error: 'Debe proporcionar al menos un campo para actualizar' };
+  }
+
+  if (tieneNombre) {
+    if (typeof nombre !== 'string' || nombre.trim().length < 2) {
+      return { error: 'El nombre debe tener al menos 2 caracteres' };
+    }
+  }
+
+  if (tieneContrasena) {
+    if (typeof nuevaContrasena !== 'string' || !contrasenaRegex.test(nuevaContrasena)) {
+      return { error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número' };
+    }
+  }
+
+  return {
+    data: {
+      nombre: tieneNombre ? nombre.trim() : undefined,
+      nuevaContrasena: tieneContrasena ? nuevaContrasena : undefined,
     },
   };
 }
