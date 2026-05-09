@@ -101,7 +101,7 @@ export class OrdenController {
       return;
     }
 
-    const { data, error } = validateActualizarOrdenDetalle(req.body);
+    const { data, error } = validateCrearOrdenDetalle(req.body);
     if (error) {
       res.status(400).json({ mensaje: error });
       return;
