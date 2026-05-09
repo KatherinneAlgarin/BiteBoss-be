@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OrdenService } from '../../services/orden.service';
-import { validateCrearOrden, validateActualizarOrden, validateCrearOrdenDetalle, validateActualizarOrdenDetalle } from '../../domain/validators/orden.validator';
+import { validateActualizarOrden, validateCrearOrdenDetalle, validateActualizarOrdenDetalle } from '../../domain/validators/orden.validator';
 import { AppError } from '../../helpers/app-error';
 
 export class OrdenController {
@@ -38,26 +38,6 @@ export class OrdenController {
 
       const detalles = await this.ordenService.obtenerDetallesOrden(id_pedido);
       res.json({ ...orden, detalles });
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
-
-  async crearOrden(req: Request, res: Response): Promise<void> {
-    const { data, error } = validateCrearOrden(req.body);
-    if (error) {
-      res.status(400).json({ mensaje: error });
-      return;
-    }
-
-    try {
-      const id_usuario = req.usuario!.id_usuario!;
-      const orden = await this.ordenService.crearOrden(data!, id_usuario);
-      res.status(201).json(orden);
     } catch (err) {
       if (err instanceof AppError) {
         res.status(err.statusCode).json({ mensaje: err.message });
@@ -121,7 +101,7 @@ export class OrdenController {
       return;
     }
 
-    const { data, error } = validateCrearOrdenDetalle(req.body);
+    const { data, error } = validateActualizarOrdenDetalle(req.body);
     if (error) {
       res.status(400).json({ mensaje: error });
       return;

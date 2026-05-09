@@ -1,30 +1,8 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
-import type { OrdenDto, OrdenDetalleDto, OrdenListItem, CrearOrdenDto, ActualizarOrdenDto, ActualizarOrdenDetalleDto, TipoOrden } from '../domain/interfaces/orden.interface';
+import type { OrdenDto, OrdenDetalleDto, OrdenListItem, ActualizarOrdenDto, ActualizarOrdenDetalleDto, TipoOrden } from '../domain/interfaces/orden.interface';
 
 export class OrdenService {
-
-  async generarNumeroOrden(id_sucursal: number, tipo_orden: TipoOrden): Promise<string> {
-    // For now, use a simple counter based on id_pedido
-    const { data, error } = await supabase
-      .from('pedido')
-      .select('id_pedido')
-      .eq('id_sucursal', id_sucursal)
-      .order('id_pedido', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      throw new AppError('Error al generar número de orden', 500);
-    }
-
-    let numero = 1;
-    if (data && data.length > 0) {
-      numero = data[0].id_pedido + 1;
-    }
-
-    const prefijo = tipo_orden === 'dine-in' ? 'M' : tipo_orden === 'takeout' ? 'L' : 'D';
-    return `${prefijo}-${numero.toString().padStart(4, '0')}`;
-  }
 
   async getSucursalTipoOrdenId(id_sucursal: number, tipo_orden: TipoOrden): Promise<number> {
     // First get tipo_orden id
@@ -55,100 +33,6 @@ export class OrdenService {
 
   async calcularTotales(detalles: OrdenDetalleDto[]): Promise<number> {
     return detalles.reduce((sum, d) => sum + d.subtotal, 0);
-  }
-
-  async crearOrden(dto: CrearOrdenDto, id_usuario: number): Promise<OrdenDto> {
-    // Get id_sucursal_tipo_orden
-    const id_sucursal_tipo_orden = await this.getSucursalTipoOrdenId(dto.id_sucursal, dto.tipo_orden);
-
-    // Get prices and calculate subtotals
-    const productosIds = dto.detalles.map(d => d.id_producto);
-    const { data: productos, error: productosError } = await supabase
-      .from('producto')
-      .select('id_producto, precio, nombre')
-      .in('id_producto', productosIds);
-
-    if (productosError || !productos) {
-      throw new AppError('Error al obtener precios de productos', 500);
-    }
-
-    const precioMap = new Map(productos.map(p => [p.id_producto, { precio: p.precio, nombre: p.nombre }]));
-
-    // Create detalles with subtotals
-    const detalles: OrdenDetalleDto[] = dto.detalles.map(d => {
-      const prodInfo = precioMap.get(d.id_producto);
-      if (!prodInfo) throw new AppError(`Producto ${d.id_producto} no encontrado`, 400);
-      return {
-        id_pedido: 0, // Will be set after creating pedido
-        id_producto: d.id_producto,
-        id_usuario_agrega: id_usuario,
-        cantidad: d.cantidad,
-        precio_unitario: prodInfo.precio,
-        subtotal: d.cantidad * prodInfo.precio,
-        estado_linea: 'PENDIENTE',
-        nota: d.nota,
-        nombre_producto: prodInfo.nombre,
-      };
-    });
-
-    // Calculate total
-    const total = await this.calcularTotales(detalles);
-
-    // Create pedido
-    const pedidoData = {
-      id_usuario,
-      total,
-      id_sucursal_tipo_orden,
-      id_sucursal: dto.id_sucursal,
-      estado_operativo: 'ABIERTO',
-      estado_financiero: 'SIN_PAGAR',
-      nombre_cliente: dto.nombre_cliente,
-      apellido_cliente: dto.apellido_cliente,
-    };
-
-    const { data: pedido, error: pedidoError } = await supabase
-      .from('pedido')
-      .insert(pedidoData)
-      .select()
-      .single();
-
-    if (pedidoError) {
-      throw new AppError('Error al crear pedido', 500);
-    }
-
-    // Create pedido_producto
-    const detallesConPedido = detalles.map(d => ({ ...d, id_pedido: pedido.id_pedido }));
-    const { error: detallesError } = await supabase
-      .from('pedido_producto')
-      .insert(detallesConPedido);
-
-    if (detallesError) {
-      // Rollback
-      await supabase.from('pedido').delete().eq('id_pedido', pedido.id_pedido);
-      throw new AppError('Error al crear detalles del pedido', 500);
-    }
-
-    // If dine-in, create pedido_mesa
-    if (dto.tipo_orden === 'dine-in' && dto.id_mesa) {
-      const { error: mesaError } = await supabase
-        .from('pedido_mesa')
-        .insert({
-          id_mesa: dto.id_mesa,
-          id_pedido: pedido.id_pedido,
-        });
-
-      if (mesaError) {
-        // Rollback
-        await supabase.from('pedido_producto').delete().eq('id_pedido', pedido.id_pedido);
-        await supabase.from('pedido').delete().eq('id_pedido', pedido.id_pedido);
-        throw new AppError('Error al asignar mesa', 500);
-      }
-    }
-
-    return {
-      ...pedido,
-      numero_orden: pedido.id_pedido.toString(), // Use id_pedido as numero_orden
-    };
   }
 
   async listarOrdenes(id_sucursal?: number, estado?: string): Promise<OrdenListItem[]> {
