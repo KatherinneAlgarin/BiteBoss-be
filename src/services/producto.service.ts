@@ -7,6 +7,8 @@ export class ProductoService {
   async listarProductos(id_sucursal?: number): Promise<ProductoListItem[]> {
     let productIds: number[] | undefined;
 
+    // Require sucursal_producto junction table to filter products by sucursal.
+    // This table must exist in the database with columns: id_producto, id_sucursal, activo
     if (id_sucursal) {
       const { data: spData, error: spError } = await supabase
         .from('sucursal_producto')
