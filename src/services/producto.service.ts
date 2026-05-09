@@ -5,6 +5,21 @@ import type { ProductoDto, ProductoListItem, CategoriaDto } from '../domain/inte
 export class ProductoService {
 
   async listarProductos(id_sucursal?: number): Promise<ProductoListItem[]> {
+    let productIds: number[] | undefined;
+
+    if (id_sucursal) {
+      const { data: spData, error: spError } = await supabase
+        .from('sucursal_producto')
+        .select('id_producto')
+        .eq('id_sucursal', id_sucursal)
+        .eq('activo', true);
+
+      if (spError) throw new AppError('Error al listar productos', 500);
+
+      productIds = (spData ?? []).map((sp: any) => sp.id_producto);
+      if (productIds.length === 0) return [];
+    }
+
     let query = supabase
       .from('producto')
       .select(`
@@ -20,15 +35,13 @@ export class ProductoService {
       `)
       .eq('activo', true);
 
-    if (id_sucursal) {
-      query = query.eq('id_sucursal', id_sucursal);
+    if (productIds) {
+      query = query.in('id_producto', productIds);
     }
 
     const { data, error } = await query;
 
-    if (error) {
-      throw new AppError('Error al listar productos', 500);
-    }
+    if (error) throw new AppError('Error al listar productos', 500);
 
     return (data ?? []).map(item => ({
       id_producto: item.id_producto,
