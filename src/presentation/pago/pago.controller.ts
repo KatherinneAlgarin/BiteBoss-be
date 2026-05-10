@@ -21,7 +21,7 @@ export class PagoController {
   }
 
   async crearPago(req: Request, res: Response): Promise<void> {
-    const { data, error } = validateCrearPago(req.body);
+    const { data, error } = await validateCrearPago(req.body);
     if (error) {
       res.status(400).json({ mensaje: error });
       return;

@@ -34,19 +34,6 @@ export class UsuarioController {
     }
   }
 
-  async listarSucursales(_req: Request, res: Response): Promise<void> {
-    try {
-      const sucursales = await this.usuarioService.listarSucursales();
-      res.json(sucursales);
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
-
   async crearUsuario(req: Request, res: Response): Promise<void> {
     const { data, error } = validateCrearUsuario(req.body);
 

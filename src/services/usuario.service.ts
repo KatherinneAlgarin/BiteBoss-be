@@ -6,7 +6,6 @@ import type {
   CrearUsuarioDto,
   PerfilResponse,
   RolItem,
-  SucursalItem,
   UsuarioCreadoResponse,
   UsuarioListItem,
 } from '../domain/interfaces/usuario.interface';
@@ -61,16 +60,6 @@ export class UsuarioService {
       .order('nombre');
 
     if (error) throw new AppError('Error al obtener roles', 500);
-    return data ?? [];
-  }
-
-  async listarSucursales(): Promise<SucursalItem[]> {
-    const { data, error } = await supabase
-      .from('sucursal')
-      .select('id_sucursal, nombre')
-      .order('nombre');
-
-    if (error) throw new AppError('Error al obtener sucursales', 500);
     return data ?? [];
   }
 

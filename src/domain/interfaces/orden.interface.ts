@@ -1,4 +1,4 @@
-export type TipoOrden = 'dine-in' | 'takeout' | 'delivery';
+export type TipoOrden = string;
 export type EstadoOperativo = 'ABIERTO' | 'EN_PREPARACION' | 'LISTO' | 'ENTREGADO' | 'CANCELADO';
 export type EstadoFinanciero = 'SIN_PAGAR' | 'PAGADO' | 'REEMBOLSADO';
 

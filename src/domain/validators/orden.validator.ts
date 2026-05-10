@@ -27,8 +27,8 @@ export function validateCrearOrdenDetalle(body: any): { data?: CrearOrdenDetalle
 export function validateActualizarOrden(body: any): { data?: ActualizarOrdenDto; error?: string } {
   const { tipo_orden, id_mesa, estado_operativo, nombre_cliente, apellido_cliente } = body ?? {};
 
-  if (tipo_orden && !['dine-in', 'takeout', 'delivery'].includes(tipo_orden)) {
-    return { error: 'El tipo de orden debe ser uno de: dine-in, takeout, delivery.' };
+  if (tipo_orden !== undefined && (typeof tipo_orden !== 'string' || tipo_orden.trim().length === 0)) {
+    return { error: 'El tipo de orden debe ser una cadena no vacía.' };
   }
 
   if (id_mesa !== undefined && typeof id_mesa !== 'number') {
