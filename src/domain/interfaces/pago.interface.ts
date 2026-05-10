@@ -1,11 +1,10 @@
-export type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'billetera';
 export type EstadoPago = 'pendiente' | 'confirmado' | 'rechazado' | 'reembolsado';
 
 export interface PagoDto {
   id_pago?: number;
   id_orden: number;
   monto: number;
-  metodo: MetodoPago;
+  metodo: string;
   referencia?: string;
   propina?: number;
   estado: EstadoPago;
@@ -15,7 +14,7 @@ export interface PagoDto {
 export interface MetodoPagoSucursalDto {
   id_metodo_pago_sucursal?: number;
   id_sucursal: number;
-  metodo: MetodoPago;
+  metodo: string;
   activo: boolean;
   descripcion?: string;
 }
@@ -23,7 +22,7 @@ export interface MetodoPagoSucursalDto {
 export interface CrearPagoDto {
   id_orden: number;
   monto: number;
-  metodo: MetodoPago;
+  metodo: string;
   referencia?: string;
   propina?: number;
 }

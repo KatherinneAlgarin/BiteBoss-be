@@ -1,6 +1,7 @@
-import { MetodoPago, EstadoPago, CrearPagoDto } from '../interfaces/pago.interface';
+import supabase from '../../config/supabase';
+import { CrearPagoDto } from '../interfaces/pago.interface';
 
-export function validateCrearPago(body: any): { data?: CrearPagoDto; error?: string } {
+export async function validateCrearPago(body: any): Promise<{ data?: CrearPagoDto; error?: string }> {
   const { id_orden, monto, metodo, referencia, propina } = body ?? {};
 
   if (!id_orden || typeof id_orden !== 'number') {
@@ -11,8 +12,22 @@ export function validateCrearPago(body: any): { data?: CrearPagoDto; error?: str
     return { error: 'El monto es requerido y debe ser un número positivo.' };
   }
 
-  if (!metodo || !['efectivo', 'tarjeta', 'transferencia', 'billetera'].includes(metodo)) {
-    return { error: 'El método de pago es requerido y debe ser uno de: efectivo, tarjeta, transferencia, billetera.' };
+  if (!metodo || typeof metodo !== 'string' || metodo.trim().length === 0) {
+    return { error: 'El método de pago es requerido y debe ser una cadena no vacía.' };
+  }
+
+  const { data: tipoPago, error: tipoError } = await supabase
+    .from('tipo_pago')
+    .select('id_tipo_pago')
+    .ilike('nombre', metodo.trim())
+    .maybeSingle();
+
+  if (tipoError) {
+    return { error: 'Error al validar el tipo de pago.' };
+  }
+
+  if (!tipoPago) {
+    return { error: `El tipo de pago "${metodo}" no está registrado.` };
   }
 
   if (referencia && typeof referencia !== 'string') {
@@ -27,7 +42,7 @@ export function validateCrearPago(body: any): { data?: CrearPagoDto; error?: str
     data: {
       id_orden,
       monto,
-      metodo,
+      metodo: metodo.trim(),
       referencia: referencia?.trim(),
       propina,
     },

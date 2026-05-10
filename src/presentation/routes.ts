@@ -6,6 +6,8 @@ import { OrdenRoutes } from './orden/orden.routes';
 import { PagoRoutes } from './pago/pago.routes';
 import { ProveedorRoutes } from './proveedor/proveedor.routes';
 import { TipoOrdenRoutes } from './tipo-orden/tipo-orden.routes';
+import { TipoPagoRoutes } from './tipo-pago/tipo-pago.routes';
+import { SucursalRoutes } from './sucursal/sucursal.routes';
 
 export class AppRoutes {
 
@@ -19,8 +21,10 @@ export class AppRoutes {
     router.use('/api/pagos', PagoRoutes.routes);
     router.use('/api/proveedores', ProveedorRoutes.routes);
     router.use('/api/tipos-orden', TipoOrdenRoutes.routes);
+    router.use('/api/tipos-pago', TipoPagoRoutes.routes);
+    router.use('/api/sucursales', SucursalRoutes.routes);
 
-    
+
     router.get('/api', (_req, res) => {
       res.json({ mensaje: 'API Restaurante funcionando' });
     });
