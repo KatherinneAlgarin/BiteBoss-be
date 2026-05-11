@@ -330,29 +330,6 @@ export class SucursalService {
   private async reemplazarTiposOrden(id_sucursal: number, ids: number[]): Promise<void> {
     const { data: actuales, error: errorSelect } = await supabase
       .from('sucursal_tipo_orden')
-      .select('id_sucursal_tipo_orden, id_tipo_orden, tipo_orden:tipo_orden!id_tipo_orden(nombre)')
-      .eq('id_sucursal', id_sucursal);
-
-    if (errorSelect) {
-      throw new AppError('Error al leer tipos de orden vinculados', 500);
-    }
-
-    const nuevosSet = new Set(ids);
-    const aQuitar = (actuales ?? []).filter((row: any) => !nuevosSet.has(row.id_tipo_orden));
-
-    for (const vinculo of aQuitar as any[]) {
-      const enUso = await this.tipoOrdenTienePedidosActivos(vinculo.id_sucursal_tipo_orden);
-      if (enUso) {
-        const nombre = vinculo.tipo_orden?.nombre ?? `#${vinculo.id_tipo_orden}`;
-        throw new AppError(
-          `No se puede quitar el tipo de orden "${nombre}" porque tiene pedidos activos en esta sucursal.`,
-          409,
-        );
-      }
-    }
-
-    const { error: errorDelete } = await supabase
-      .from('sucursal_tipo_orden')
       .select('id_sucursal_tipo_orden, id_tipo_orden, activo, tipo_orden:tipo_orden!id_tipo_orden(nombre)')
       .eq('id_sucursal', id_sucursal);
 
@@ -369,20 +346,14 @@ export class SucursalService {
     const aCrear = ids.filter(id => !existentesSet.has(id));
 
     for (const vinculo of aDesactivar) {
-      const enUso = await this.tipoOrdenTienePedidosActivos(vinculo.id_sucursal_tipo_orden);
-      if (enUso) {
-        const nombre = vinculo.tipo_orden?.nombre ?? `#${vinculo.id_tipo_orden}`;
-        throw new AppError(
-          `No se puede quitar el tipo de orden "${nombre}" porque tiene pedidos activos en esta sucursal.`,
-          409,
-        );
+      const { error } = await supabase
+        .from('sucursal_tipo_orden')
+        .update({ activo: false })
+        .eq('id_sucursal_tipo_orden', vinculo.id_sucursal_tipo_orden);
+      if (error) {
+        throw new AppError('Error al desactivar vínculo de tipo de orden', 500);
       }
     }
-
-    const filas = ids.map(id_tipo_orden => ({ id_sucursal, id_tipo_orden, activo: true }));
-    const { error: errorInsert } = await supabase
-      .from('sucursal_tipo_orden')
-      .insert(filas);
 
     for (const vinculo of aReactivar) {
       const { error } = await supabase
@@ -407,29 +378,6 @@ export class SucursalService {
 
   private async reemplazarTiposPago(id_sucursal: number, ids: number[]): Promise<void> {
     const { data: actuales, error: errorSelect } = await supabase
-      .from('sucursal_metodo_pago')
-      .select('id_sucursal_pago, id_tipo_pago, tipo_pago:tipo_pago!id_tipo_pago(nombre)')
-      .eq('id_sucursal', id_sucursal);
-
-    if (errorSelect) {
-      throw new AppError('Error al leer métodos de pago vinculados', 500);
-    }
-
-    const nuevosSet = new Set(ids);
-    const aQuitar = (actuales ?? []).filter((row: any) => !nuevosSet.has(row.id_tipo_pago));
-
-    for (const vinculo of aQuitar as any[]) {
-      const enUso = await this.tipoPagoTienePedidosActivos(id_sucursal, vinculo.id_tipo_pago);
-      if (enUso) {
-        const nombre = vinculo.tipo_pago?.nombre ?? `#${vinculo.id_tipo_pago}`;
-        throw new AppError(
-          `No se puede quitar el método de pago "${nombre}" porque tiene pedidos activos en esta sucursal.`,
-          409,
-        );
-      }
-    }
-
-    const { error: errorDelete } = await supabase
       .from('sucursal_metodo_pago')
       .select('id_sucursal_pago, id_tipo_pago, activo, tipo_pago:tipo_pago!id_tipo_pago(nombre)')
       .eq('id_sucursal', id_sucursal);
@@ -512,37 +460,6 @@ export class SucursalService {
       .limit(1);
 
     if (error) {
-      return false;
-    }
-    return (data ?? []).length > 0;
-  }
-
-  private async tipoOrdenTienePedidosActivos(id_sucursal_tipo_orden: number): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('pedido')
-      .select('id_pedido')
-      .eq('id_sucursal_tipo_orden', id_sucursal_tipo_orden)
-      .not('estado_operativo', 'in', ESTADOS_TERMINALES_PG)
-      .limit(1);
-
-    if (error) {
-      // si la tabla pedido aún no estuviera disponible, no bloquear
-      return false;
-    }
-    return (data ?? []).length > 0;
-  }
-
-  private async tipoPagoTienePedidosActivos(id_sucursal: number, id_tipo_pago: number): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('pago_pedido')
-      .select('id_pago_pedido, pedido:pedido!id_pedido!inner(id_sucursal, estado_operativo)')
-      .eq('id_metodo_pago', id_tipo_pago)
-      .eq('pedido.id_sucursal', id_sucursal)
-      .not('pedido.estado_operativo', 'in', ESTADOS_TERMINALES_PG)
-      .limit(1);
-
-    if (error) {
-      // si la tabla pago_pedido aún no estuviera disponible, no bloquear
       return false;
     }
     return (data ?? []).length > 0;
