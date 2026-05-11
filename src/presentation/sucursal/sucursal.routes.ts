@@ -13,6 +13,7 @@ export class SucursalRoutes {
 
     router.get('/', (req, res) => controller.listar(req, res));
     router.get('/:id', (req, res) => controller.obtener(req, res));
+    router.get('/:id/dependencias', authorizeRoles('admin'), (req, res) => controller.obtenerDependencias(req, res));
     router.post('/', authorizeRoles('admin'), (req, res) => controller.crear(req, res));
     router.patch('/:id', authorizeRoles('admin'), (req, res) => controller.actualizar(req, res));
     router.patch('/:id/activar', authorizeRoles('admin'), (req, res) => controller.activar(req, res));
