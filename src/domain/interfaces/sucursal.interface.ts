@@ -23,3 +23,11 @@ export interface ActualizarSucursalDto {
   tipos_orden?: number[];
   tipos_pago?: number[];
 }
+
+export interface DependenciasSucursal {
+  usuarios_activos: number;
+  zonas_asociadas: { id_zona: number; nombre: string }[];
+  mesas_asociadas: number;
+  puede_desactivar: boolean;
+  requiere_eliminar_zonas: boolean;
+}

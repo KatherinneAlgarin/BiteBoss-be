@@ -89,6 +89,26 @@ export class SucursalController {
     }
   }
 
+  async obtenerDependencias(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const id_sucursal = parseInt(id as string, 10);
+    if (isNaN(id_sucursal)) {
+      res.status(400).json({ mensaje: 'ID de sucursal inválido' });
+      return;
+    }
+
+    try {
+      const dependencias = await this.sucursalService.obtenerDependencias(id_sucursal);
+      res.json(dependencias);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
   async activar(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const id_sucursal = parseInt(id as string, 10);

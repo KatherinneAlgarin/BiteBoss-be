@@ -5,6 +5,7 @@ import type {
   SucursalDetalle,
   CrearSucursalDto,
   ActualizarSucursalDto,
+  DependenciasSucursal,
 } from '../domain/interfaces/sucursal.interface';
 
 export class SucursalService {
@@ -186,12 +187,14 @@ export class SucursalService {
   }
 
   async desactivar(id_sucursal: number): Promise<SucursalItem> {
-    if (await this.tieneInformacionActivaAsociada(id_sucursal)) {
+    if (await this.tieneUsuariosActivos(id_sucursal)) {
       throw new AppError(
         'No se puede desactivar: la sucursal tiene información activa asociada.',
         409,
       );
     }
+
+    await this.eliminarZonasYMesasDeSucursal(id_sucursal);
 
     const { data, error } = await supabase
       .from('sucursal')
@@ -209,6 +212,24 @@ export class SucursalService {
       nombre: data.nombre,
       direccion: data.direccion ?? null,
       activo: data.activo ?? false,
+    };
+  }
+
+  async obtenerDependencias(id_sucursal: number): Promise<DependenciasSucursal> {
+    const usuariosActivos = await this.contarUsuariosActivos(id_sucursal);
+    const zonas = await this.listarZonasDeSucursal(id_sucursal);
+    const mesas = zonas.length > 0
+      ? await this.contarMesasEnZonas(zonas.map(z => z.id_zona))
+      : 0;
+
+    const puedeDesactivar = usuariosActivos === 0;
+
+    return {
+      usuarios_activos: usuariosActivos,
+      zonas_asociadas: zonas,
+      mesas_asociadas: mesas,
+      puede_desactivar: puedeDesactivar,
+      requiere_eliminar_zonas: puedeDesactivar && zonas.length > 0,
     };
   }
 
@@ -232,7 +253,11 @@ export class SucursalService {
     };
   }
 
-  private async tieneInformacionActivaAsociada(id_sucursal: number): Promise<boolean> {
+  private async tieneUsuariosActivos(id_sucursal: number): Promise<boolean> {
+    return (await this.contarUsuariosActivos(id_sucursal)) > 0;
+  }
+
+  private async contarUsuariosActivos(id_sucursal: number): Promise<number> {
     const { data, error } = await supabase
       .from('usuario_sucursal')
       .select('usuario:usuario!id_usuario(activo)')
@@ -242,7 +267,58 @@ export class SucursalService {
       throw new AppError('Error al validar información asociada a la sucursal', 500);
     }
 
-    return (data ?? []).some((row: any) => row.usuario?.activo === true);
+    return (data ?? []).filter((row: any) => row.usuario?.activo === true).length;
+  }
+
+  private async listarZonasDeSucursal(id_sucursal: number): Promise<{ id_zona: number; nombre: string }[]> {
+    const { data, error } = await supabase
+      .from('zona')
+      .select('id_zona, nombre')
+      .eq('id_sucursal', id_sucursal);
+
+    if (error) {
+      // si la tabla zona no existiera, devolver vacío
+      return [];
+    }
+    return (data ?? []).map((z: any) => ({ id_zona: z.id_zona, nombre: z.nombre }));
+  }
+
+  private async contarMesasEnZonas(ids_zona: number[]): Promise<number> {
+    if (ids_zona.length === 0) return 0;
+    const { data, error } = await supabase
+      .from('mesa')
+      .select('id_mesa')
+      .in('id_zona', ids_zona);
+
+    if (error) return 0;
+    return (data ?? []).length;
+  }
+
+  private async eliminarZonasYMesasDeSucursal(id_sucursal: number): Promise<void> {
+    const zonas = await this.listarZonasDeSucursal(id_sucursal);
+    if (zonas.length === 0) return;
+
+    const ids_zona = zonas.map(z => z.id_zona);
+
+    // Eliminar mesas primero (FK a zona)
+    const { error: errorMesas } = await supabase
+      .from('mesa')
+      .delete()
+      .in('id_zona', ids_zona);
+
+    if (errorMesas) {
+      throw new AppError('Error al eliminar mesas asociadas a la sucursal', 500);
+    }
+
+    // Eliminar zonas
+    const { error: errorZonas } = await supabase
+      .from('zona')
+      .delete()
+      .eq('id_sucursal', id_sucursal);
+
+    if (errorZonas) {
+      throw new AppError('Error al eliminar zonas asociadas a la sucursal', 500);
+    }
   }
 
   private async reemplazarTiposOrden(id_sucursal: number, ids: number[]): Promise<void> {
