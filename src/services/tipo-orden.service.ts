@@ -1,18 +1,20 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
+import { ESTADOS_PEDIDO_TERMINALES } from '../domain/constants/pedido';
 import type {
   CrearTipoOrdenDto,
   ActualizarTipoOrdenDto,
   TipoOrdenListItem,
-  DependenciasTipoOrden,
 } from '../domain/interfaces/tipo-orden.interface';
+
+const ESTADOS_TERMINALES_PG = `(${ESTADOS_PEDIDO_TERMINALES.map(s => `"${s}"`).join(',')})`;
 
 export class TipoOrdenService {
 
   async listar(): Promise<TipoOrdenListItem[]> {
     const { data, error } = await supabase
       .from('tipo_orden')
-      .select('id_tipo_orden, nombre, id_tipo_orden_padre, requiere_mesa, padre:tipo_orden!id_tipo_orden_padre(nombre)')
+      .select('id_tipo_orden, nombre, id_tipo_orden_padre, requiere_mesa, activo, padre:tipo_orden!id_tipo_orden_padre(nombre)')
       .order('id_tipo_orden_padre', { ascending: true, nullsFirst: true })
       .order('nombre', { ascending: true });
 
@@ -26,13 +28,14 @@ export class TipoOrdenService {
       id_tipo_orden_padre: item.id_tipo_orden_padre,
       nombre_padre: item.padre?.nombre ?? null,
       requiere_mesa: item.requiere_mesa,
+      activo: item.activo ?? true,
     }));
   }
 
   async obtenerPorId(id_tipo_orden: number): Promise<TipoOrdenListItem | null> {
     const { data, error } = await supabase
       .from('tipo_orden')
-      .select('id_tipo_orden, nombre, id_tipo_orden_padre, requiere_mesa, padre:tipo_orden!id_tipo_orden_padre(nombre)')
+      .select('id_tipo_orden, nombre, id_tipo_orden_padre, requiere_mesa, activo, padre:tipo_orden!id_tipo_orden_padre(nombre)')
       .eq('id_tipo_orden', id_tipo_orden)
       .single();
 
@@ -47,6 +50,7 @@ export class TipoOrdenService {
       id_tipo_orden_padre: data.id_tipo_orden_padre,
       nombre_padre: (data as any).padre?.nombre ?? null,
       requiere_mesa: data.requiere_mesa,
+      activo: (data as any).activo ?? true,
     };
   }
 
@@ -186,76 +190,115 @@ export class TipoOrdenService {
     return actualizado;
   }
 
-  async obtenerDependencias(id_tipo_orden: number): Promise<DependenciasTipoOrden> {
-    const existe = await this.existeId(id_tipo_orden);
-    if (!existe) {
+  async desactivar(id_tipo_orden: number): Promise<TipoOrdenListItem> {
+    const actual = await this.obtenerPorId(id_tipo_orden);
+    if (!actual) {
       throw new AppError('Tipo de orden no encontrado', 404);
     }
 
-    const { data: subtiposData, error: subtiposError } = await supabase
-      .from('tipo_orden')
-      .select('id_tipo_orden, nombre')
-      .eq('id_tipo_orden_padre', id_tipo_orden)
-      .order('nombre', { ascending: true });
+    const hijos = await this.obtenerHijosRecursivos(id_tipo_orden);
+    const todosIds = [id_tipo_orden, ...hijos];
 
-    if (subtiposError) {
-      throw new AppError('Error al consultar subtipos', 500);
-    }
-
-    const { data: asignacionesData, error: asignacionesError } = await supabase
-      .from('sucursal_tipo_orden')
-      .select('id_sucursal, sucursal:sucursal!id_sucursal(nombre)')
-      .eq('id_tipo_orden', id_tipo_orden);
-
-    if (asignacionesError) {
-      throw new AppError('Error al consultar asignaciones a sucursales', 500);
-    }
-
-    const sucursalesMap = new Map<number, string>();
-    for (const item of (asignacionesData ?? []) as any[]) {
-      if (!sucursalesMap.has(item.id_sucursal)) {
-        sucursalesMap.set(item.id_sucursal, item.sucursal?.nombre ?? `Sucursal ${item.id_sucursal}`);
+    for (const id of todosIds) {
+      if (await this.tienePedidosActivos(id)) {
+        throw new AppError('No se puede desactivar: tiene información activa asociada.', 409);
       }
-    }
-
-    const subtipos = (subtiposData ?? []).map(s => ({
-      id_tipo_orden: s.id_tipo_orden,
-      nombre: s.nombre,
-    }));
-
-    const sucursales_asignadas = Array.from(sucursalesMap.entries()).map(([id_sucursal, nombre]) => ({
-      id_sucursal,
-      nombre,
-    }));
-
-    return {
-      subtipos,
-      sucursales_asignadas,
-      puede_eliminar: subtipos.length === 0 && sucursales_asignadas.length === 0,
-    };
-  }
-
-  async eliminar(id_tipo_orden: number): Promise<void> {
-    const dependencias = await this.obtenerDependencias(id_tipo_orden);
-
-    if (!dependencias.puede_eliminar) {
-      const partes: string[] = [];
-      if (dependencias.subtipos.length > 0) {
-        partes.push(`tiene ${dependencias.subtipos.length} subtipo(s)`);
-      }
-      if (dependencias.sucursales_asignadas.length > 0) {
-        partes.push(`está asignado a ${dependencias.sucursales_asignadas.length} sucursal(es)`);
-      }
-      throw new AppError(`No se puede eliminar: ${partes.join(' y ')}.`, 409);
     }
 
     const { error } = await supabase
       .from('tipo_orden')
-      .delete()
-      .eq('id_tipo_orden', id_tipo_orden);
+      .update({ activo: false })
+      .in('id_tipo_orden', todosIds);
 
     if (error) {
-      throw new AppError('Error al eliminar tipo de orden', 500);
+      throw new AppError('Error al desactivar tipo de orden', 500);
     }
+
+    const actualizado = await this.obtenerPorId(id_tipo_orden);
+    if (!actualizado) {
+      throw new AppError('Error al recuperar tipo de orden desactivado', 500);
+    }
+    return actualizado;
+  }
+
+  async activar(id_tipo_orden: number): Promise<TipoOrdenListItem> {
+    const actual = await this.obtenerPorId(id_tipo_orden);
+    if (!actual) {
+      throw new AppError('Tipo de orden no encontrado', 404);
+    }
+
+    // Verificar si el tipo tiene un padre inactivo
+    if (actual.id_tipo_orden_padre) {
+      const padre = await this.obtenerPorId(actual.id_tipo_orden_padre);
+      if (padre && !padre.activo) {
+        throw new AppError(`El tipo de orden padre "${padre.nombre}" está inactivo. Debes activarlo primero.`, 409);
+      }
+    }
+
+    const hijos = await this.obtenerHijosRecursivos(id_tipo_orden);
+    const todosIds = [id_tipo_orden, ...hijos];
+
+    const { error } = await supabase
+      .from('tipo_orden')
+      .update({ activo: true })
+      .in('id_tipo_orden', todosIds);
+
+    if (error) {
+      throw new AppError('Error al activar tipo de orden', 500);
+    }
+
+    const actualizado = await this.obtenerPorId(id_tipo_orden);
+    if (!actualizado) {
+      throw new AppError('Error al recuperar tipo de orden activado', 500);
+    }
+    return actualizado;
+  }
+
+  private async obtenerHijosRecursivos(id_tipo_orden: number): Promise<number[]> {
+    const hijos: number[] = [];
+
+    const { data, error } = await supabase
+      .from('tipo_orden')
+      .select('id_tipo_orden')
+      .eq('id_tipo_orden_padre', id_tipo_orden);
+
+    if (error) {
+      throw new AppError('Error al obtener hijos del tipo de orden', 500);
+    }
+
+    for (const hijo of data ?? []) {
+      hijos.push(hijo.id_tipo_orden);
+      const nietos = await this.obtenerHijosRecursivos(hijo.id_tipo_orden);
+      hijos.push(...nietos);
+    }
+
+    return hijos;
+  }
+
+  private async tienePedidosActivos(id_tipo_orden: number): Promise<boolean> {
+    const { data: vinculos, error: errorVinc } = await supabase
+      .from('sucursal_tipo_orden')
+      .select('id_sucursal_tipo_orden')
+      .eq('id_tipo_orden', id_tipo_orden);
+
+    if (errorVinc) {
+      throw new AppError('Error al validar pedidos del tipo de orden', 500);
+    }
+
+    const idsVinculo = (vinculos ?? []).map((v: any) => v.id_sucursal_tipo_orden);
+    if (idsVinculo.length === 0) return false;
+
+    const { data: pedidos, error: errorPed } = await supabase
+      .from('pedido')
+      .select('id_pedido')
+      .in('id_sucursal_tipo_orden', idsVinculo)
+      .not('estado_operativo', 'in', ESTADOS_TERMINALES_PG)
+      .limit(1);
+
+    if (errorPed) {
+      // si la tabla pedido aún no estuviera disponible, no bloquear
+      return false;
+    }
+    return (pedidos ?? []).length > 0;
   }
 }

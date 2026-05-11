@@ -6,7 +6,7 @@ import { AppError } from '../../helpers/app-error';
 export class TipoOrdenController {
   constructor(private readonly tipoOrdenService = new TipoOrdenService()) {}
 
-  async listar(req: Request, res: Response): Promise<void> {
+  async listar(_req: Request, res: Response): Promise<void> {
     try {
       const tipos = await this.tipoOrdenService.listar();
       res.json(tipos);
@@ -88,7 +88,7 @@ export class TipoOrdenController {
     }
   }
 
-  async obtenerDependencias(req: Request, res: Response): Promise<void> {
+  async desactivar(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const id_tipo_orden = parseInt(id as string, 10);
     if (isNaN(id_tipo_orden)) {
@@ -97,8 +97,8 @@ export class TipoOrdenController {
     }
 
     try {
-      const dependencias = await this.tipoOrdenService.obtenerDependencias(id_tipo_orden);
-      res.json(dependencias);
+      const tipo = await this.tipoOrdenService.desactivar(id_tipo_orden);
+      res.json(tipo);
     } catch (err) {
       if (err instanceof AppError) {
         res.status(err.statusCode).json({ mensaje: err.message });
@@ -108,7 +108,7 @@ export class TipoOrdenController {
     }
   }
 
-  async eliminar(req: Request, res: Response): Promise<void> {
+  async activar(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const id_tipo_orden = parseInt(id as string, 10);
     if (isNaN(id_tipo_orden)) {
@@ -117,8 +117,8 @@ export class TipoOrdenController {
     }
 
     try {
-      await this.tipoOrdenService.eliminar(id_tipo_orden);
-      res.json({ mensaje: 'Tipo de orden eliminado correctamente' });
+      const tipo = await this.tipoOrdenService.activar(id_tipo_orden);
+      res.json(tipo);
     } catch (err) {
       if (err instanceof AppError) {
         res.status(err.statusCode).json({ mensaje: err.message });

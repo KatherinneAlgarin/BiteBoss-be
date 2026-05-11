@@ -13,10 +13,10 @@ export class TipoOrdenRoutes {
 
     router.get('/', (req, res) => controller.listar(req, res));
     router.get('/:id', (req, res) => controller.obtener(req, res));
-    router.get('/:id/dependencias', authorizeRoles('admin'), (req, res) => controller.obtenerDependencias(req, res));
     router.post('/', authorizeRoles('admin'), (req, res) => controller.crear(req, res));
     router.patch('/:id', authorizeRoles('admin'), (req, res) => controller.actualizar(req, res));
-    router.delete('/:id', authorizeRoles('admin'), (req, res) => controller.eliminar(req, res));
+    router.patch('/:id/activar', authorizeRoles('admin'), (req, res) => controller.activar(req, res));
+    router.patch('/:id/desactivar', authorizeRoles('admin'), (req, res) => controller.desactivar(req, res));
 
     return router;
   }

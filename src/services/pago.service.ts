@@ -29,7 +29,7 @@ export class PagoService {
   }
 
   async crearPago(dto: CrearPagoDto): Promise<PagoDto> {
-    // Get id_tipo_pago
+
     const { data: tipoPagoData, error: tipoError } = await supabase
       .from('tipo_pago')
       .select('id_tipo_pago')
@@ -50,15 +50,14 @@ export class PagoService {
       fecha_pago: new Date(),
     };
 
-    // Actually, the schema uses pago_pedido table
     const pagoPedidoData = {
-      id_usuario: 1, // TODO: get from context
+      id_usuario: 1, 
       id_pedido: dto.id_orden,
       id_metodo_pago: tipoPagoData.id_tipo_pago,
       propina: dto.propina || 0,
       monto: dto.monto,
       nota: dto.referencia,
-      tipo_pago: 'VENTA', // Assuming
+      tipo_pago: 'VENTA',
     };
 
     const { data, error } = await supabase
