@@ -1,0 +1,360 @@
+import { ProductoService } from '../../../services/producto.service';
+import { createSupabaseMock } from '../../mocks/supabase.mock';
+import { AppError } from '../../../helpers/app-error';
+
+jest.mock('../../../config/supabase');
+
+describe('ProductoService', () => {
+  let productoService: ProductoService;
+  let mockSupabase: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSupabase = createSupabaseMock();
+    
+    const supabaseModule = require('../../../config/supabase');
+    supabaseModule.default = mockSupabase;
+    
+    productoService = new ProductoService();
+  });
+
+  describe('listarProductos', () => {
+    
+    const productosResponse = [
+      {
+        id_producto: 1,
+        nombre: 'Pizza Margarita',
+        descripcion: 'Pizza clásica',
+        precio: 25.99,
+        activo: true,
+        id_categoria: 1,
+        categoria: { nombre: 'Pizzas' },
+      },
+      {
+        id_producto: 2,
+        nombre: 'Hamburguesa',
+        descripcion: 'Hamburguesa con queso',
+        precio: 15.50,
+        activo: true,
+        id_categoria: 2,
+        categoria: { nombre: 'Hamburguesas' },
+      },
+    ];
+
+    // ✅ CASOS CORRECTOS
+    it('debería listar todos los productos sin filtro', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: productosResponse,
+        error: null,
+      });
+
+      const resultado = await productoService.listarProductos();
+
+      expect(resultado).toHaveLength(2);
+      expect(resultado[0].nombre).toBe('Pizza Margarita');
+      expect(resultado[0].categoria_nombre).toBe('Pizzas');
+    });
+
+    it('debería listar productos de una sucursal específica', async () => {
+      // Primera query: sucursal_producto con .eq().eq() — usa mockResult
+      mockSupabase.from().mockResult({ data: [{ id_producto: 1 }, { id_producto: 2 }], error: null });
+      // Segunda query: producto con .eq().in() — usa mockResult
+      mockSupabase.from().mockResult({ data: productosResponse, error: null });
+
+      const resultado = await productoService.listarProductos(1);
+
+      expect(resultado).toHaveLength(2);
+    });
+
+    it('debería retornar array vacío si sucursal no tiene productos', async () => {
+      // Primera query retorna vacío: el servicio hace return [] sin ejecutar segunda query
+      mockSupabase.from().mockResult({ data: [], error: null });
+
+      const resultado = await productoService.listarProductos(1);
+
+      expect(resultado).toEqual([]);
+    });
+
+    it('debería retornar array vacío si no hay productos', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const resultado = await productoService.listarProductos();
+
+      expect(resultado).toEqual([]);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla al obtener productos de sucursal', async () => {
+      mockSupabase.from().mockResult({ data: null, error: { message: 'Error de BD' } });
+
+      await expect(productoService.listarProductos(1)).rejects.toThrow(
+        new AppError('Error al listar productos', 500)
+      );
+    });
+
+    it('debería lanzar error si falla al listar productos', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: null,
+        error: { message: 'Error de BD' },
+      });
+
+      await expect(productoService.listarProductos()).rejects.toThrow(
+        new AppError('Error al listar productos', 500)
+      );
+    });
+  });
+
+  describe('obtenerProductoPorId', () => {
+    
+    const productoResponse = {
+      id_producto: 1,
+      nombre: 'Pizza Margarita',
+      descripcion: 'Pizza clásica',
+      precio: 25.99,
+      activo: true,
+      id_categoria: 1,
+    };
+
+    // ✅ CASOS CORRECTOS
+    it('debería obtener un producto por ID', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: productoResponse,
+        error: null,
+      });
+
+      const resultado = await productoService.obtenerProductoPorId(1);
+
+      expect(resultado).toBeDefined();
+      expect(resultado?.nombre).toBe('Pizza Margarita');
+      expect(resultado?.precio).toBe(25.99);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería retornar null si producto no existe', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      const resultado = await productoService.obtenerProductoPorId(999);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('debería lanzar error si hay problema en BD', async () => {
+      mockSupabase.from().select().eq().single.mockResolvedValue({
+        data: null,
+        error: { message: 'Error de BD', code: 'OTHER_ERROR' },
+      });
+
+      await expect(productoService.obtenerProductoPorId(1)).rejects.toThrow(
+        new AppError('Error al obtener producto', 500)
+      );
+    });
+  });
+
+  describe('crearProducto', () => {
+    
+    const crearProductoDto = {
+      nombre: 'Pizza Hawaiana',
+      descripcion: 'Pizza con piña',
+      precio: 28.99,
+      id_categoria: 1,
+      id_sucursal: 1,
+      activo: true,
+      imagen: 'pizza-hawaiana.jpg',
+    };
+
+    // ✅ CASOS CORRECTOS
+    it('debería crear un producto exitosamente', async () => {
+      // Primera query: from('producto').insert().select().single()
+      mockSupabase.from().insert().select().single.mockResolvedValueOnce({
+        data: { id_producto: 1, ...crearProductoDto },
+        error: null,
+      });
+
+      // Segunda query: from('sucursal_producto').insert() — awaited directamente (sin .select ni .single)
+      mockSupabase.from().mockResult({ data: null, error: null });
+
+      const resultado = await productoService.crearProducto(crearProductoDto);
+
+      expect(resultado.nombre).toBe('Pizza Hawaiana');
+      expect(resultado.precio).toBe(28.99);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla al crear producto', async () => {
+      mockSupabase.from().insert().select().single.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Error inserting' },
+      });
+
+      await expect(productoService.crearProducto(crearProductoDto)).rejects.toThrow(
+        new AppError('Error al crear producto', 500)
+      );
+    });
+
+    it('debería lanzar error si falla al asociar con sucursal', async () => {
+      // Primera query: from('producto').insert().select().single() — exitosa
+      mockSupabase.from().insert().select().single.mockResolvedValueOnce({
+        data: { id_producto: 1, ...crearProductoDto },
+        error: null,
+      });
+
+      // Segunda query: from('sucursal_producto').insert() — falla
+      mockSupabase.from().mockResult({ data: null, error: { message: 'Error' } });
+
+      await expect(productoService.crearProducto(crearProductoDto)).rejects.toThrow(
+        new AppError('Error al asociar producto con sucursal', 500)
+      );
+    });
+  });
+
+  describe('actualizarProducto', () => {
+    
+    const actualizarDto = {
+      nombre: 'Pizza Margarita Premium',
+      precio: 30.99,
+    };
+
+    // ✅ CASOS CORRECTOS
+    it('debería actualizar un producto', async () => {
+      const productoActualizado = {
+        id_producto: 1,
+        nombre: 'Pizza Margarita Premium',
+        precio: 30.99,
+        activo: true,
+      };
+
+      mockSupabase.from().update().eq().select().single.mockResolvedValue({
+        data: productoActualizado,
+        error: null,
+      });
+
+      const resultado = await productoService.actualizarProducto(1, actualizarDto);
+
+      expect(resultado.nombre).toBe('Pizza Margarita Premium');
+      expect(resultado.precio).toBe(30.99);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla actualización', async () => {
+      mockSupabase.from().update().eq().select().single.mockResolvedValue({
+        data: null,
+        error: { message: 'Error updating' },
+      });
+
+      await expect(productoService.actualizarProducto(1, actualizarDto)).rejects.toThrow(
+        new AppError('Error al actualizar producto', 500)
+      );
+    });
+  });
+
+  describe('eliminarProducto', () => {
+    
+    // ✅ CASOS CORRECTOS
+    it('debería eliminar un producto (marcar como inactivo)', async () => {
+      mockSupabase.from().update().eq.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      await expect(productoService.eliminarProducto(1)).resolves.toBeUndefined();
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla al eliminar', async () => {
+      mockSupabase.from().update().eq.mockResolvedValue({
+        data: null,
+        error: { message: 'Error deleting' },
+      });
+
+      await expect(productoService.eliminarProducto(1)).rejects.toThrow(
+        new AppError('Error al eliminar producto', 500)
+      );
+    });
+  });
+
+  describe('listarCategorias', () => {
+    
+    const categoriasResponse = [
+      { id_categoria: 1, nombre: 'Pizzas', activo: true },
+      { id_categoria: 2, nombre: 'Hamburguesas', activo: true },
+      { id_categoria: 3, nombre: 'Bebidas', activo: true },
+    ];
+
+    // ✅ CASOS CORRECTOS
+    it('debería listar categorías activas', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: categoriasResponse,
+        error: null,
+      });
+
+      const resultado = await productoService.listarCategorias();
+
+      expect(resultado).toHaveLength(3);
+      expect(resultado[0].nombre).toBe('Pizzas');
+    });
+
+    it('debería retornar array vacío si no hay categorías', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const resultado = await productoService.listarCategorias();
+
+      expect(resultado).toEqual([]);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla al listar categorías', async () => {
+      mockSupabase.from().select().eq.mockResolvedValue({
+        data: null,
+        error: { message: 'Error de BD' },
+      });
+
+      await expect(productoService.listarCategorias()).rejects.toThrow(
+        new AppError('Error al listar categorías', 500)
+      );
+    });
+  });
+
+  describe('crearCategoria', () => {
+    
+    const crearCategoriaDto = {
+      nombre: 'Postres',
+      descripcion: 'Postres variados',
+      id_sucursal: 1,
+      activo: true,
+    };
+
+    // ✅ CASOS CORRECTOS
+    it('debería crear una categoría exitosamente', async () => {
+      mockSupabase.from().insert().select().single.mockResolvedValue({
+        data: { id_categoria: 1, ...crearCategoriaDto },
+        error: null,
+      });
+
+      const resultado = await productoService.crearCategoria(crearCategoriaDto);
+
+      expect(resultado.nombre).toBe('Postres');
+      expect(resultado.activo).toBe(true);
+    });
+
+    // ❌ CASOS DE ERROR
+    it('debería lanzar error si falla al crear categoría', async () => {
+      mockSupabase.from().insert().select().single.mockResolvedValue({
+        data: null,
+        error: { message: 'Error inserting' },
+      });
+
+      await expect(productoService.crearCategoria(crearCategoriaDto)).rejects.toThrow(
+        new AppError('Error al crear categoría', 500)
+      );
+    });
+  });
+});
