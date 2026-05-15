@@ -26,14 +26,13 @@ export class UsuarioService {
           sucursal ( id_sucursal, nombre )
         )
       `)
-      .eq('activo', true)
-      .order('nombre');
+      .eq('activo', true);
 
     if (!esAdmin && id_sucursal) {
       query = query.eq('usuario_sucursal.id_sucursal', id_sucursal);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.order('nombre');
 
     if (error) throw new AppError('Error al obtener usuarios', 500);
 

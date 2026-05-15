@@ -9,10 +9,12 @@ export function validateOlvidarContrasena(body: any): { data?: OlvidarContrasena
     return { error: 'El email es requerido' };
   }
 
+  const emailNorm = email.trim().toLowerCase();
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(emailNorm)) {
     return { error: 'El email no tiene un formato válido' };
   }
 
-  return { data: { email: email.trim().toLowerCase() } };
+  return { data: { email: emailNorm } };
 }

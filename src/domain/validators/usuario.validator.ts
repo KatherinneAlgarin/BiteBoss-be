@@ -11,8 +11,10 @@ export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error
     return { error: 'El email es requerido' };
   }
 
+  const emailNorm = email.trim().toLowerCase();
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(emailNorm)) {
     return { error: 'El email no tiene un formato válido' };
   }
 
@@ -35,7 +37,7 @@ export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error
   return {
     data: {
       nombre: nombre.trim(),
-      email: email.trim().toLowerCase(),
+      email: emailNorm,
       password,
       id_rol,
       id_sucursal,
