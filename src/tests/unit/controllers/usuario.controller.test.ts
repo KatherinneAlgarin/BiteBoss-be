@@ -92,9 +92,47 @@ describe('UsuarioController', () => {
     });
 
     it('debería crear el usuario y responder 201', async () => {
+      /*
+       * ¿QUÉ SE TESTEA?
+       *   El método crearUsuario() del controller. A diferencia del service test,
+       *   aquí NO nos interesa la lógica de negocio — eso ya fue testeado en el service.
+       *   Aquí verificamos que el controller:
+       *     1. Llame al validador con el body del request
+       *     2. Si la validación pasa, llame al servicio
+       *     3. Responda con HTTP 201 y el objeto creado
+       *
+       * ¿CÓMO FUNCIONA?
+       *   El controller recibe un req (request HTTP) y un res (response HTTP).
+       *   En el test ambos son objetos falsos:
+       *
+       *   - req: simula el request que llegaría de Express, con el body que mandaría
+       *     el cliente. En este caso tiene datos de un usuario a crear.
+       *
+       *   - res: tiene funciones spías (jest.fn()) que registran si fueron llamadas
+       *     y con qué argumentos. Con esto podemos verificar que el controller
+       *     respondió con el status y body correctos sin levantar un servidor HTTP real.
+       *
+       *   - mockUsuarioService: el servicio está completamente reemplazado por un mock.
+       *     mockResolvedValueOnce(usuarioBase) le dice: "la próxima vez que alguien
+       *     llame a crearUsuario(), devuelve usuarioBase como resultado exitoso".
+       *     Así el controller recibe un usuario y lo envía en la respuesta.
+       *
+       *   - El validator también está mockeado (jest.mock al inicio del archivo)
+       *     y configurado en beforeEach para retornar { data: {...}, error: null },
+       *     es decir, siempre valida como correcto salvo que el test lo cambie.
+       */
+
+      // ARRANGE: el servicio responderá con este objeto cuando sea llamado
       mockUsuarioService.crearUsuario.mockResolvedValueOnce(usuarioBase);
+
+      // req simula el body HTTP que envía el cliente
       const req = { body: { nombre: 'Ana', email: 'ana@test.com', rol: 'mesero', id_sucursal: 1 } } as any;
+
+      // ACT: ejecutar el método del controller
       await controller.crearUsuario(req, res);
+
+      // ASSERT: verificar que res.status(201) y res.json(usuarioBase) fueron llamados
+      // Si el controller hubiera llamado res.status(500) o res.json({error:...}), el test falla
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(usuarioBase);
     });

@@ -2,15 +2,35 @@ import { validateCrearUsuario, validateActualizarPerfil } from '../../../domain/
 
 describe('usuario.validator', () => {
   describe('validateCrearUsuario', () => {
-    
+
     // ✅ CASOS CORRECTOS
     it('debería validar un usuario correcto', () => {
+      /*
+       * ¿QUÉ SE TESTEA?
+       *   La función validateCrearUsuario recibe datos del body HTTP y verifica que
+       *   sean correctos antes de que lleguen al servicio. Aquí probamos el caso feliz:
+       *   todos los campos son válidos.
+       *
+       * ¿CÓMO FUNCIONA?
+       *   1. Se llama directamente a la función validadora con datos de prueba inventados.
+       *      No hay base de datos, no hay HTTP — es una función pura que solo lee el objeto
+       *      y aplica reglas (longitud, formato, tipo).
+       *
+       *   2. La función retorna { data, error }:
+       *      - Si los datos son válidos → data tiene el objeto limpio, error es undefined.
+       *      - Si algo falla → data es undefined/null, error es un string con el mensaje.
+       *
+       *   3. Con expect() verificamos que el resultado sea el esperado:
+       *      - toBeDefined() → que data exista (no sea undefined ni null)
+       *      - toBe('Juan Pérez') → que el valor sea exactamente ese string
+       *      - toBeUndefined() → que no haya error
+       */
       const result = validateCrearUsuario({
-        nombre: 'Juan Pérez',
-        email: 'juan@example.com',
-        password: 'tempPass123',
-        id_rol: 1,
-        id_sucursal: 1,
+        nombre: 'Juan Pérez',       // dato de prueba inventado — simula lo que mandaría un frontend
+        email: 'juan@example.com',  // email con formato válido
+        password: 'tempPass123',    // contraseña con la longitud mínima requerida
+        id_rol: 1,                  // entero positivo → válido
+        id_sucursal: 1,             // entero positivo → válido
       });
 
       expect(result.data).toBeDefined();

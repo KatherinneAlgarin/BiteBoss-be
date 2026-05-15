@@ -1,28 +1,23 @@
 import { jest } from '@jest/globals';
 
 /**
- * Crea un mock reutilizable de Supabase.
+ * Crea un mock falso de Supabase que simula las consultas a la base de datos.
  *
- * Patrones de uso:
+ * ¿QUÉ HACE?
+ *   Cuando un servicio llama a supabase.from().select().eq(), en vez de conectarse
+ *   a la BD real, conecta a este mock. Las respuestas están pre-configuradas en tests
+ *   con mockResolvedValueOnce({ data, error }).
  *
- * 1. Cadena simple con método terminal (el método final devuelve una Promise):
- *      mockSupabase.from().select().eq.mockResolvedValue({ data, error })
- *    Funciona porque eq() devuelve la Promise directamente.
- *
- * 2. Cadena con .single() al final:
- *      mockSupabase.from().insert().select().single.mockResolvedValueOnce({ data, error })
- *    Funciona porque single() devuelve la Promise directamente.
- *
- * 3. Cadenas con múltiples filtros encadenados (ej. .eq().eq(), .eq().in()):
- *      mockSupabase.from().mockResult({ data, error })
- *    El queryBuilder es "thenable": cuando el servicio hace `await query` donde
- *    query es el queryBuilder (los métodos devuelven queryBuilder por defecto),
- *    se usa la cola interna para resolver el valor.
- *    Llamar mockResult varias veces encola múltiples respuestas en orden FIFO.
+ * ¿CÓMO FUNCIONA?
+ *   1. Los métodos (select, eq, insert, etc.) se encadenan y devuelven el queryBuilder
+ *   2. El queryBuilder es "awaitable" (se puede hacer await query)
+ *   3. Cada await consume un resultado pre-configurado en orden FIFO (primero en, primero salido)
+ *   4. Esto permite simular múltiples consultas en secuencia sin conectar a BD real
  */
 export const createSupabaseMock = () => {
   const resultQueue: Array<{ data: any; error: any }> = [];
 
+  // Crea los métodos de Supabase (select, eq, insert, etc.)
   const queryBuilder: any = {
     select: jest.fn(),
     eq: jest.fn(),
@@ -39,14 +34,15 @@ export const createSupabaseMock = () => {
     maybeSingle: jest.fn(),
   };
 
-  // Cada método devuelve la misma instancia para encadenamiento
+  // Todos los métodos devuelven el mismo queryBuilder para permitir encadenamiento
+  // (así se puede hacer: supabase.from().select().eq().order())
   Object.values(queryBuilder).forEach((method) => {
     if (jest.isMockFunction(method)) {
       (method as any).mockReturnValue(queryBuilder);
     }
   });
 
-  // single() y maybeSingle() devuelven una Promise por defecto
+  // single() y maybeSingle() retornan Promise (últimos en la cadena)
   queryBuilder.single.mockImplementation(() =>
     Promise.resolve({ data: null, error: null })
   );
@@ -54,15 +50,13 @@ export const createSupabaseMock = () => {
     Promise.resolve({ data: null, error: null })
   );
 
-  // Hace que queryBuilder sea "thenable" (awaitable) usando la cola de resultados.
-  // Solo se invoca cuando el código hace `await query` donde query === queryBuilder
-  // (es decir, el último método de la cadena devolvió queryBuilder, no una Promise).
+  // Hace que queryBuilder sea awaitable: extrae un resultado de la cola cada vez
   queryBuilder.then = (resolve: any, reject: any) => {
     const result = resultQueue.shift() ?? { data: null, error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
 
-  // Helper para encolar el resultado de un `await query` donde query termina en queryBuilder
+  // Agrega un resultado a la cola para ser consumido en el próximo await
   queryBuilder.mockResult = (value: { data: any; error: any }) => {
     resultQueue.push(value);
     return queryBuilder;

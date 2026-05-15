@@ -208,50 +208,98 @@ describe('UsuarioService', () => {
 
     // ✅ CASOS CORRECTOS
     it('debería crear usuario exitosamente', async () => {
-      // Mock: email no existe
+      /*
+       * ¿QUÉ SE TESTEA?
+       *   El método crearUsuario() del servicio. Este método hace VARIAS consultas a la
+       *   base de datos en secuencia (verificar email, crear en auth, insertar en tabla,
+       *   vincular rol/sucursal, etc.). Aquí probamos que todo el flujo funciona.
+       *
+       * ¿CÓMO FUNCIONA EL MOCK DE SUPABASE?
+       *   En lugar de conectarse a una BD real, usamos createSupabaseMock() que devuelve
+       *   un objeto falso que imita el cliente de Supabase. Cada consulta que hace el
+       *   servicio consume un resultado de una cola FIFO (primero en entrar, primero en salir).
+       *
+       *   Por eso configuramos los mocks EN EL MISMO ORDEN en que el servicio los necesita:
+       *
+       *   Consulta 1 → verificar que el email no existe → retorna lista vacía (no duplicado)
+       *   Consulta 2 → crear usuario en Supabase Auth → retorna { user: { id: 'auth-123' } }
+       *   Consulta 3 → insertar en tabla 'usuario' → retorna el id generado
+       *   Consulta 4 → insertar en 'usuario_sucursal' → retorna el vínculo creado
+       *   Consulta 5 → obtener nombre del rol → retorna 'Mesero'
+       *   Consulta 6 → obtener nombre de la sucursal → retorna 'Sucursal Principal'
+       *   Consulta 7 → actualizar metadata en auth → confirma OK
+       *
+       *   Si el orden estuviera mal, el servicio recibiría la respuesta equivocada
+       *   y el test fallaría — exactamente como pasaría con datos reales.
+       *
+       * ¿QUÉ VALORES SE USAN?
+       *   Los datos de crearUsuarioDto (definidos arriba en el describe) son datos
+       *   inventados que simulan lo que mandaría el frontend. Los IDs como 'auth-123'
+       *   o 1 son cualquier valor que el servicio recibiría de Supabase.
+       */
+
+      // Consulta 1: verificar que el email no está registrado
+      // from('usuario')       → tabla a consultar
+      // .select()             → qué columnas traer
+      // .eq('email', ...)     → WHERE email = 'nuevo@example.com'
+      // .limit                → LIMIT 1 (solo necesita saber si existe o no)
+      // data: []              → lista vacía significa que el email está libre (no duplicado)
       mockSupabase.from().select().eq().limit.mockResolvedValueOnce({
         data: [],
         error: null,
       });
 
-      // Mock: crear en auth
+      // Consulta 2: crear la cuenta en Supabase Auth (sistema de autenticación)
+      // auth.admin.createUser → crea el usuario en el sistema de login de Supabase
+      // data.user.id          → el auth_id que Supabase genera ('auth-123' es inventado)
       mockSupabase.auth.admin.createUser.mockResolvedValueOnce({
         data: { user: { id: 'auth-123' } },
         error: null,
       });
 
-      // Mock: crear en tabla usuario
+      // Consulta 3: insertar el registro en la tabla 'usuario' de la BD propia
+      // insert()              → INSERT INTO usuario (...)
+      // .select().single()    → retorna la fila insertada
+      // data: { id_usuario: 1 } → el ID que la BD asignó al nuevo registro
       mockSupabase.from().insert().select().single.mockResolvedValueOnce({
         data: { id_usuario: 1 },
         error: null,
       });
 
-      // Mock: crear asignación sucursal-rol
+      // Consulta 4: vincular usuario con sucursal y rol en tabla 'usuario_sucursal'
+      // Es la tabla intermedia que relaciona usuario ↔ sucursal ↔ rol
       mockSupabase.from().insert().select().single.mockResolvedValueOnce({
         data: { id_usuario_sucursal: 1 },
         error: null,
       });
 
-      // Mock: obtener nombre de rol
+      // Consulta 5: leer el nombre del rol para incluirlo en la respuesta final
+      // .eq('id_rol', 2)      → WHERE id_rol = 2
+      // .single()             → espera exactamente un resultado
+      // data: { nombre: 'Mesero' } → el nombre que se mostrará en la respuesta
       mockSupabase.from().select().eq().single.mockResolvedValueOnce({
         data: { nombre: 'Mesero' },
         error: null,
       });
 
-      // Mock: obtener nombre de sucursal
+      // Consulta 6: leer el nombre de la sucursal para incluirlo en la respuesta final
       mockSupabase.from().select().eq().single.mockResolvedValueOnce({
         data: { nombre: 'Sucursal Principal' },
         error: null,
       });
 
-      // Mock: actualizar metadata
+      // Consulta 7: actualizar metadata del usuario en Supabase Auth (nombre, rol, etc.)
+      // Esto sincroniza los datos del JWT con los datos del perfil
       mockSupabase.auth.admin.updateUserById.mockResolvedValueOnce({
         data: { user: {} },
         error: null,
       });
 
+      // ACT: ejecutar el método con los datos de prueba
       const resultado = await usuarioService.crearUsuario(crearUsuarioDto);
 
+      // ASSERT: verificar que el resultado tiene la forma esperada
+      // Los valores vienen de los mocks que configuramos arriba, no de una BD real
       expect(resultado.id_usuario).toBe(1);
       expect(resultado.nombre).toBe('Nuevo Usuario');
       expect(resultado.email).toBe('nuevo@example.com');
