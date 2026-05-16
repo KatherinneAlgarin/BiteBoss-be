@@ -1,18 +1,15 @@
 export interface TipoPagoItem {
   id_tipo_pago: number;
   nombre: string;
-  descripcion: string | null;
   activo: boolean;
 }
 
 export interface CrearTipoPagoDto {
   nombre: string;
-  descripcion?: string | null;
 }
 
 export interface ActualizarTipoPagoDto {
   nombre?: string;
-  descripcion?: string | null;
 }
 
 export interface SucursalImpactadaTipoPago {

@@ -24,7 +24,6 @@ export class TipoPagoService {
     return {
       id_tipo_pago: item.id_tipo_pago,
       nombre: item.nombre,
-      descripcion: item.descripcion ?? null,
       activo: item.activo ?? true,
     };
   }
@@ -54,7 +53,7 @@ export class TipoPagoService {
     antes: TipoPagoItem | null;
     despues: TipoPagoItem;
   }): Promise<void> {
-    const campos = ['nombre', 'descripcion', 'activo'] as const;
+    const campos = ['nombre', 'activo'] as const;
     const cambios = campos
       .filter((campo) => (params.antes?.[campo] ?? null) !== (params.despues[campo] ?? null))
       .map((campo) => ({
@@ -94,7 +93,7 @@ export class TipoPagoService {
   async obtenerPorId(id_tipo_pago: number): Promise<TipoPagoItem | null> {
     const { data, error } = await supabase
       .from('tipo_pago')
-      .select('id_tipo_pago, nombre, descripcion, activo')
+      .select('id_tipo_pago, nombre, activo')
       .eq('id_tipo_pago', id_tipo_pago)
       .maybeSingle();
 
@@ -109,7 +108,7 @@ export class TipoPagoService {
   async listar(): Promise<TipoPagoItem[]> {
     const { data, error } = await supabase
       .from('tipo_pago')
-      .select('id_tipo_pago, nombre, descripcion, activo')
+      .select('id_tipo_pago, nombre, activo')
       .order('nombre', { ascending: true });
 
     if (error) {
@@ -128,7 +127,6 @@ export class TipoPagoService {
       .from('tipo_pago')
       .insert({
         nombre: dto.nombre,
-        descripcion: dto.descripcion ?? null,
         activo: true,
       })
       .select('id_tipo_pago')
@@ -159,7 +157,6 @@ export class TipoPagoService {
 
     const updateData: Record<string, any> = {};
     if (dto.nombre !== undefined) updateData.nombre = dto.nombre;
-    if (dto.descripcion !== undefined) updateData.descripcion = dto.descripcion;
 
     if (Object.keys(updateData).length === 0) {
       return actual;
