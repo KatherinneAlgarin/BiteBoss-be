@@ -17,6 +17,7 @@ export class ReservacionRoutes {
     router.patch('/:id',                   (req, res) => controller.actualizar(req, res));
     router.patch('/:id/cancelar',          (req, res) => controller.cancelar(req, res));
     router.patch('/:id/reactivar',         (req, res) => controller.reactivar(req, res));
+    router.patch('/:id/completar',         (req, res) => controller.completar(req, res));
 
     return router;
   }

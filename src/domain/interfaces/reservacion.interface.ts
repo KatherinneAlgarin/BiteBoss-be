@@ -1,3 +1,5 @@
+export type EstadoReservacion = 'pendiente' | 'cancelada' | 'completada';
+
 export interface ActualizarReservacionDto {
   nombre_cliente?: string;
   telefono?: string | null;
@@ -31,6 +33,7 @@ export interface ReservacionItem {
   mesa_numero: number;
   id_sucursal: number;
   id_usuario_sucursal: number;
+  estado: EstadoReservacion;
   activo: boolean;
   creado_en: string;
 }

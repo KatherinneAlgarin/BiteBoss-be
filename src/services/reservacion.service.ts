@@ -1,10 +1,10 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
-import type { CrearReservacionDto, ActualizarReservacionDto, ReservacionItem } from '../domain/interfaces/reservacion.interface';
+import type { CrearReservacionDto, ActualizarReservacionDto, ReservacionItem, EstadoReservacion } from '../domain/interfaces/reservacion.interface';
 
 export class ReservacionService {
 
-  async listar(id_sucursal: number, activo?: boolean): Promise<ReservacionItem[]> {
+  async listar(id_sucursal: number, estado?: EstadoReservacion): Promise<ReservacionItem[]> {
     let query = supabase
       .from('reservacion')
       .select(`
@@ -16,16 +16,18 @@ export class ReservacionService {
         cantidad_personas,
         id_sucursal,
         id_usuario_sucursal,
+        estado,
         activo,
         creado_en,
         zona ( id_zona, nombre ),
         reservacion_mesa ( id_mesa, activo, mesa ( id_mesa, numero ) )
       `)
       .eq('id_sucursal', id_sucursal)
+      .eq('activo', true)
       .order('fecha_llegada', { ascending: false });
 
-    if (activo !== undefined) {
-      query = query.eq('activo', activo);
+    if (estado !== undefined) {
+      query = query.eq('estado', estado);
     }
 
     const { data, error } = await query;
@@ -37,20 +39,21 @@ export class ReservacionService {
     return (data ?? []).map((r: any) => {
       const mesaActiva = (r.reservacion_mesa ?? []).find((rm: any) => rm.activo === true);
       return {
-        id_reservacion: r.id_reservacion,
-        nombre_cliente: r.nombre_cliente,
-        telefono: r.telefono ?? null,
-        email: r.email ?? null,
-        fecha_llegada: r.fecha_llegada,
+        id_reservacion:    r.id_reservacion,
+        nombre_cliente:    r.nombre_cliente,
+        telefono:          r.telefono ?? null,
+        email:             r.email ?? null,
+        fecha_llegada:     r.fecha_llegada,
         cantidad_personas: r.cantidad_personas,
-        id_zona: r.zona?.id_zona ?? 0,
-        zona_nombre: r.zona?.nombre ?? '',
-        id_mesa: mesaActiva?.mesa?.id_mesa ?? 0,
-        mesa_numero: mesaActiva?.mesa?.numero ?? 0,
-        id_sucursal: r.id_sucursal,
+        id_zona:           r.zona?.id_zona ?? 0,
+        zona_nombre:       r.zona?.nombre ?? '',
+        id_mesa:           mesaActiva?.mesa?.id_mesa ?? 0,
+        mesa_numero:       mesaActiva?.mesa?.numero ?? 0,
+        id_sucursal:       r.id_sucursal,
         id_usuario_sucursal: r.id_usuario_sucursal,
-        activo: r.activo,
-        creado_en: r.creado_en,
+        estado:            r.estado as EstadoReservacion,
+        activo:            r.activo,
+        creado_en:         r.creado_en,
       };
     });
   }
@@ -71,13 +74,14 @@ export class ReservacionService {
       .insert({
         id_usuario_sucursal,
         id_sucursal,
-        nombre_cliente: dto.nombre_cliente,
-        telefono: dto.telefono ?? null,
-        email: dto.email ?? null,
-        id_zona: dto.id_zona,
-        fecha_llegada: dto.fecha_llegada,
+        nombre_cliente:    dto.nombre_cliente,
+        telefono:          dto.telefono ?? null,
+        email:             dto.email ?? null,
+        id_zona:           dto.id_zona,
+        fecha_llegada:     dto.fecha_llegada,
         cantidad_personas: dto.cantidad_personas,
-        activo: true,
+        estado:            'pendiente',
+        activo:            true,
       })
       .select('id_reservacion, creado_en')
       .single();
@@ -90,8 +94,8 @@ export class ReservacionService {
       .from('reservacion_mesa')
       .insert({
         id_reservacion: reservacion.id_reservacion,
-        id_mesa: dto.id_mesa,
-        activo: true,
+        id_mesa:        dto.id_mesa,
+        activo:         true,
       });
 
     if (errorMesa) {
@@ -103,33 +107,34 @@ export class ReservacionService {
     }
 
     return {
-      id_reservacion: reservacion.id_reservacion,
-      nombre_cliente: dto.nombre_cliente,
-      telefono: dto.telefono ?? null,
-      email: dto.email ?? null,
-      fecha_llegada: dto.fecha_llegada,
+      id_reservacion:    reservacion.id_reservacion,
+      nombre_cliente:    dto.nombre_cliente,
+      telefono:          dto.telefono ?? null,
+      email:             dto.email ?? null,
+      fecha_llegada:     dto.fecha_llegada,
       cantidad_personas: dto.cantidad_personas,
-      id_zona: dto.id_zona,
-      zona_nombre: zona.nombre,
-      id_mesa: dto.id_mesa,
-      mesa_numero: mesa.numero,
+      id_zona:           dto.id_zona,
+      zona_nombre:       zona.nombre,
+      id_mesa:           dto.id_mesa,
+      mesa_numero:       mesa.numero,
       id_sucursal,
       id_usuario_sucursal,
-      activo: true,
-      creado_en: reservacion.creado_en,
+      estado:            'pendiente',
+      activo:            true,
+      creado_en:         reservacion.creado_en,
     };
   }
 
   async actualizar(id_reservacion: number, dto: ActualizarReservacionDto, id_sucursal: number): Promise<ReservacionItem> {
     const actual = await this.obtenerYValidarPertenencia(id_reservacion, id_sucursal);
 
-    if (!actual.activo) {
-      throw new AppError('No se puede editar una reservación cancelada', 409);
+    if (actual.estado !== 'pendiente') {
+      throw new AppError('Solo se pueden editar reservaciones en estado pendiente', 409);
     }
 
-    const zonaFinal = dto.id_zona ?? actual.id_zona;
-    const mesaFinal = dto.id_mesa ?? actual.id_mesa;
-    const personasFinal = dto.cantidad_personas ?? actual.cantidad_personas;
+    const zonaFinal     = dto.id_zona           ?? actual.id_zona;
+    const mesaFinal     = dto.id_mesa            ?? actual.id_mesa;
+    const personasFinal = dto.cantidad_personas  ?? actual.cantidad_personas;
 
     if (dto.id_zona !== undefined) {
       await this.validarZonaDeSucursal(dto.id_zona, id_sucursal);
@@ -146,12 +151,12 @@ export class ReservacionService {
     }
 
     const updateReservacion: Record<string, any> = {};
-    if (dto.nombre_cliente !== undefined) updateReservacion.nombre_cliente = dto.nombre_cliente;
-    if (dto.telefono !== undefined)       updateReservacion.telefono = dto.telefono;
-    if (dto.email !== undefined)          updateReservacion.email = dto.email;
-    if (dto.fecha_llegada !== undefined)  updateReservacion.fecha_llegada = dto.fecha_llegada;
+    if (dto.nombre_cliente !== undefined)    updateReservacion.nombre_cliente    = dto.nombre_cliente;
+    if (dto.telefono !== undefined)          updateReservacion.telefono          = dto.telefono;
+    if (dto.email !== undefined)             updateReservacion.email             = dto.email;
+    if (dto.fecha_llegada !== undefined)     updateReservacion.fecha_llegada     = dto.fecha_llegada;
     if (dto.cantidad_personas !== undefined) updateReservacion.cantidad_personas = dto.cantidad_personas;
-    if (dto.id_zona !== undefined)        updateReservacion.id_zona = dto.id_zona;
+    if (dto.id_zona !== undefined)           updateReservacion.id_zona           = dto.id_zona;
 
     if (Object.keys(updateReservacion).length > 0) {
       const { error } = await supabase
@@ -186,51 +191,61 @@ export class ReservacionService {
   async cancelar(id_reservacion: number, id_sucursal: number): Promise<void> {
     const actual = await this.obtenerYValidarPertenencia(id_reservacion, id_sucursal);
 
-    if (!actual.activo) {
+    if (actual.estado === 'cancelada') {
       throw new AppError('La reservación ya está cancelada', 409);
+    }
+    if (actual.estado === 'completada') {
+      throw new AppError('No se puede cancelar una reservación completada', 409);
     }
 
     const { error } = await supabase
       .from('reservacion')
-      .update({ activo: false })
+      .update({ estado: 'cancelada' })
       .eq('id_reservacion', id_reservacion);
 
     if (error) {
       throw new AppError('Error al cancelar la reservación', 500);
     }
-
-    await supabase
-      .from('reservacion_mesa')
-      .update({ activo: false })
-      .eq('id_reservacion', id_reservacion);
   }
 
   async reactivar(id_reservacion: number, id_sucursal: number): Promise<void> {
     const actual = await this.obtenerYValidarPertenencia(id_reservacion, id_sucursal);
 
-    if (actual.activo) {
-      throw new AppError('La reservación ya está activa', 409);
+    if (actual.estado !== 'cancelada') {
+      throw new AppError('Solo se pueden reactivar reservaciones canceladas', 409);
     }
 
     const { error } = await supabase
       .from('reservacion')
-      .update({ activo: true })
+      .update({ estado: 'pendiente' })
       .eq('id_reservacion', id_reservacion);
 
     if (error) {
       throw new AppError('Error al reactivar la reservación', 500);
     }
+  }
 
-    await supabase
-      .from('reservacion_mesa')
-      .update({ activo: true })
+  async completar(id_reservacion: number, id_sucursal: number): Promise<void> {
+    const actual = await this.obtenerYValidarPertenencia(id_reservacion, id_sucursal);
+
+    if (actual.estado !== 'pendiente') {
+      throw new AppError('Solo se pueden completar reservaciones pendientes', 409);
+    }
+
+    const { error } = await supabase
+      .from('reservacion')
+      .update({ estado: 'completada' })
       .eq('id_reservacion', id_reservacion);
+
+    if (error) {
+      throw new AppError('Error al completar la reservación', 500);
+    }
   }
 
   private async obtenerYValidarPertenencia(
     id_reservacion: number,
     id_sucursal: number,
-  ): Promise<{ id_reservacion: number; id_sucursal: number; id_zona: number; id_mesa: number; cantidad_personas: number; activo: boolean }> {
+  ): Promise<{ id_reservacion: number; id_sucursal: number; id_zona: number; id_mesa: number; cantidad_personas: number; estado: EstadoReservacion }> {
     const { data, error } = await supabase
       .from('reservacion')
       .select(`
@@ -238,10 +253,11 @@ export class ReservacionService {
         id_sucursal,
         id_zona,
         cantidad_personas,
-        activo,
+        estado,
         reservacion_mesa ( id_mesa, activo )
       `)
       .eq('id_reservacion', id_reservacion)
+      .eq('activo', true)
       .maybeSingle();
 
     if (error) {
@@ -257,12 +273,12 @@ export class ReservacionService {
     const mesaActiva = (data.reservacion_mesa as any[])?.find((rm: any) => rm.activo === true);
 
     return {
-      id_reservacion: data.id_reservacion,
-      id_sucursal:    data.id_sucursal,
-      id_zona:        data.id_zona,
-      id_mesa:        mesaActiva?.id_mesa ?? 0,
+      id_reservacion:    data.id_reservacion,
+      id_sucursal:       data.id_sucursal,
+      id_zona:           data.id_zona,
+      id_mesa:           mesaActiva?.id_mesa ?? 0,
       cantidad_personas: data.cantidad_personas,
-      activo:         data.activo,
+      estado:            data.estado as EstadoReservacion,
     };
   }
 
