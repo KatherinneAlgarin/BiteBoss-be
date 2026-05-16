@@ -34,7 +34,13 @@ export class UsuarioController {
     try {
       const id_usuario = Number(req.params.id_usuario);
       if (!id_usuario || Number.isNaN(id_usuario)) {
-        res.status(400).json({ mensaje: 'Id de usuario inválido' });
+        res.status(400).json({ mensaje: 'Id de usuario inv\u00e1lido' });
+        return;
+      }
+
+      // Evitar que el admin logueado se modifique a sí mismo
+      if (req.usuario && req.usuario.rol && req.usuario.rol.toUpperCase() === 'ADMIN' && req.usuario.id_usuario === id_usuario) {
+        res.status(403).json({ mensaje: 'No puedes modificar tu propio usuario desde este panel.' });
         return;
       }
 
