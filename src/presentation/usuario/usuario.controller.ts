@@ -8,7 +8,7 @@ export class UsuarioController {
 
   async listarUsuarios(req: Request, res: Response): Promise<void> {
     try {
-      const esAdmin = req.usuario?.rol === 'admin';
+      const esAdmin = req.usuario?.rol?.toUpperCase() === 'ADMIN';
       const id_sucursal = req.usuario?.id_sucursal;
 
       const search = typeof req.query.search === 'string' ? req.query.search : undefined;
