@@ -10,6 +10,7 @@ import { TipoPagoRoutes } from './tipo-pago/tipo-pago.routes';
 import { SucursalRoutes } from './sucursal/sucursal.routes';
 import { ZonaRoutes } from './zona/zona.routes';
 import { MesaRoutes } from './mesa/mesa.routes';
+import { InventarioRoutes } from './inventario/inventario.routes';
 
 export class AppRoutes {
 
@@ -27,6 +28,7 @@ export class AppRoutes {
     router.use('/api/sucursales', SucursalRoutes.routes);
     router.use('/api/zonas', ZonaRoutes.routes);
     router.use('/api/mesas', MesaRoutes.routes);
+    router.use('/api/inventario', InventarioRoutes.routes);
 
 
     router.get('/api', (_req, res) => {
