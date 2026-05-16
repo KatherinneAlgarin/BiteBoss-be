@@ -10,8 +10,44 @@ export class UsuarioController {
     try {
       const esAdmin = req.usuario?.rol === 'admin';
       const id_sucursal = req.usuario?.id_sucursal;
-      const usuarios = await this.usuarioService.listarUsuarios(id_sucursal, esAdmin);
+
+      const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+      const id_rol = req.query.id_rol ? Number(req.query.id_rol) : undefined;
+      const id_sucursal_filter = req.query.id_sucursal ? Number(req.query.id_sucursal) : undefined;
+
+      const usuarios = await this.usuarioService.listarUsuarios(id_sucursal, esAdmin, {
+        search,
+        id_rol,
+        id_sucursal: id_sucursal_filter,
+      });
       res.json(usuarios);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
+  async actualizarUsuario(req: Request, res: Response): Promise<void> {
+    try {
+      const id_usuario = Number(req.params.id_usuario);
+      if (!id_usuario || Number.isNaN(id_usuario)) {
+        res.status(400).json({ mensaje: 'Id de usuario inválido' });
+        return;
+      }
+
+      const { id_rol, id_sucursal, activo } = req.body ?? {};
+
+      const dto: any = {};
+      if (id_rol !== undefined) dto.id_rol = Number(id_rol);
+      if (id_sucursal !== undefined) dto.id_sucursal = Number(id_sucursal);
+      if (activo !== undefined) dto.activo = Boolean(activo);
+
+      await this.usuarioService.actualizarUsuario(id_usuario, dto);
+
+      res.json({ mensaje: 'Permisos del usuario actualizados exitosamente' });
     } catch (err) {
       if (err instanceof AppError) {
         res.status(err.statusCode).json({ mensaje: err.message });

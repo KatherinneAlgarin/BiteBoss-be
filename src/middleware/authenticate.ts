@@ -41,7 +41,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       )
     `)
     .eq('email', authData.user.email)
-    .eq('activo', true)
     .limit(1);
 
   if (dbError || !usuarios?.[0]) {
@@ -50,6 +49,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   }
 
   const usuario = usuarios[0];
+
+  if (usuario.activo === false) {
+    res.status(403).json({ mensaje: 'Tu cuenta ha sido desactivada. Contacta al administrador' });
+    return;
+  }
+
   const asignacion = usuario.usuario_sucursal?.[0];
 
   if (!asignacion) {
