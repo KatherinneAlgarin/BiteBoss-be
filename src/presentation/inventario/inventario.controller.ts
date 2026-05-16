@@ -7,7 +7,18 @@ export class InventarioController {
 
   async listarStockActual(req: Request, res: Response): Promise<void> {
     try {
-      const id_sucursal = req.usuario?.id_sucursal;
+      const querySucursal = req.query.id_sucursal;
+      const idSucursalQuery =
+        typeof querySucursal === 'string' && querySucursal.trim().length > 0
+          ? Number(querySucursal)
+          : undefined;
+
+      if (idSucursalQuery !== undefined && Number.isNaN(idSucursalQuery)) {
+        res.status(400).json({ mensaje: 'El id_sucursal debe ser un numero valido' });
+        return;
+      }
+
+      const id_sucursal = idSucursalQuery ?? req.usuario?.id_sucursal;
       const inventario = await this.inventarioService.listarStockActualProductos(id_sucursal);
       res.json(inventario);
     } catch (err) {
