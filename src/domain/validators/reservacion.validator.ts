@@ -1,6 +1,8 @@
 import { CrearReservacionDto, ActualizarReservacionDto } from '../interfaces/reservacion.interface';
 
 const TIEMPOS_EXTRA_VALIDOS = [0, 30, 60, 90];
+const PHONE_REGEX = /^\+?[\d\s\-()\./]{7,20}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validateActualizarReservacion(body: any): { data?: ActualizarReservacionDto; error?: string } {
   const { nombre_cliente, telefono, email, fecha_llegada, cantidad_personas, id_zona, id_mesa, tiempo_extra_minutos } = body ?? {};
@@ -9,20 +11,32 @@ export function validateActualizarReservacion(body: any): { data?: ActualizarRes
     return { error: 'El nombre del cliente no puede estar vacío.' };
   }
 
-  if (telefono !== undefined && telefono !== null && typeof telefono !== 'string') {
-    return { error: 'El teléfono debe ser una cadena de texto.' };
+  if (telefono !== undefined && telefono !== null) {
+    if (typeof telefono !== 'string') return { error: 'El teléfono debe ser una cadena de texto.' };
+    if (telefono.trim().length > 0 && !PHONE_REGEX.test(telefono.trim())) {
+      return { error: 'El teléfono no tiene un formato válido.' };
+    }
   }
 
-  if (email !== undefined && email !== null && typeof email !== 'string') {
-    return { error: 'El email debe ser una cadena de texto.' };
+  if (email !== undefined && email !== null) {
+    if (typeof email !== 'string') return { error: 'El email debe ser una cadena de texto.' };
+    if (email.trim().length > 0 && !EMAIL_REGEX.test(email.trim())) {
+      return { error: 'El email no tiene un formato válido.' };
+    }
   }
 
   if (fecha_llegada !== undefined) {
     if (typeof fecha_llegada !== 'string' || fecha_llegada.trim().length === 0) {
       return { error: 'La fecha y hora de llegada no puede estar vacía.' };
     }
-    if (isNaN(new Date(fecha_llegada).getTime())) {
+    const fecha = new Date(fecha_llegada);
+    if (isNaN(fecha.getTime())) {
       return { error: 'La fecha y hora de llegada no tiene un formato válido.' };
+    }
+    const ahora  = new Date();
+    const minimo = new Date(ahora.getTime() + 15 * 60 * 1000);
+    if (fecha < minimo) {
+      return { error: 'La reservación debe crearse con al menos 15 minutos de anticipación.' };
     }
   }
 
@@ -44,8 +58,8 @@ export function validateActualizarReservacion(body: any): { data?: ActualizarRes
 
   const data: ActualizarReservacionDto = {};
   if (nombre_cliente !== undefined)       data.nombre_cliente       = nombre_cliente.trim();
-  if (telefono !== undefined)             data.telefono             = telefono?.trim() ?? null;
-  if (email !== undefined)                data.email                = email?.trim() ?? null;
+  if (telefono !== undefined)             data.telefono             = telefono?.trim() || null;
+  if (email !== undefined)                data.email                = email?.trim() || null;
   if (fecha_llegada !== undefined)        data.fecha_llegada        = fecha_llegada.trim();
   if (cantidad_personas !== undefined)    data.cantidad_personas    = cantidad_personas;
   if (id_zona !== undefined)             data.id_zona              = id_zona;
@@ -62,20 +76,32 @@ export function validateCrearReservacion(body: any): { data?: CrearReservacionDt
     return { error: 'El nombre del cliente es requerido.' };
   }
 
-  if (telefono !== undefined && telefono !== null && typeof telefono !== 'string') {
-    return { error: 'El teléfono debe ser una cadena de texto.' };
+  if (telefono !== undefined && telefono !== null) {
+    if (typeof telefono !== 'string') return { error: 'El teléfono debe ser una cadena de texto.' };
+    if (telefono.trim().length > 0 && !PHONE_REGEX.test(telefono.trim())) {
+      return { error: 'El teléfono no tiene un formato válido.' };
+    }
   }
 
-  if (email !== undefined && email !== null && typeof email !== 'string') {
-    return { error: 'El email debe ser una cadena de texto.' };
+  if (email !== undefined && email !== null) {
+    if (typeof email !== 'string') return { error: 'El email debe ser una cadena de texto.' };
+    if (email.trim().length > 0 && !EMAIL_REGEX.test(email.trim())) {
+      return { error: 'El email no tiene un formato válido.' };
+    }
   }
 
   if (!fecha_llegada || typeof fecha_llegada !== 'string' || fecha_llegada.trim().length === 0) {
     return { error: 'La fecha y hora de llegada es requerida.' };
   }
 
-  if (isNaN(new Date(fecha_llegada).getTime())) {
+  const fecha = new Date(fecha_llegada);
+  if (isNaN(fecha.getTime())) {
     return { error: 'La fecha y hora de llegada no tiene un formato válido.' };
+  }
+  const ahora  = new Date();
+  const minimo = new Date(ahora.getTime() + 15 * 60 * 1000);
+  if (fecha < minimo) {
+    return { error: 'La reservación debe crearse con al menos 15 minutos de anticipación.' };
   }
 
   if (typeof cantidad_personas !== 'number' || !Number.isInteger(cantidad_personas) || cantidad_personas <= 0) {
@@ -97,8 +123,8 @@ export function validateCrearReservacion(body: any): { data?: CrearReservacionDt
   return {
     data: {
       nombre_cliente:       nombre_cliente.trim(),
-      telefono:             telefono?.trim() ?? null,
-      email:                email?.trim() ?? null,
+      telefono:             telefono?.trim() || null,
+      email:                email?.trim() || null,
       fecha_llegada:        fecha_llegada.trim(),
       cantidad_personas,
       id_zona,
