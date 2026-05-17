@@ -12,7 +12,11 @@ import type {
 
 export class UsuarioService {
 
-  async listarUsuarios(id_sucursal?: number, esAdmin = false): Promise<UsuarioListItem[]> {
+  async listarUsuarios(
+    id_sucursal_usuario?: number,
+    esAdmin = false,
+    filtros?: { search?: string; id_rol?: number; id_sucursal?: number }
+  ): Promise<UsuarioListItem[]> {
     let query = supabase
       .from('usuario')
       .select(`
@@ -22,14 +26,39 @@ export class UsuarioService {
         activo,
         usuario_sucursal (
           id_usuario_sucursal,
+          id_rol,
           rol ( id_rol, nombre ),
+          id_sucursal,
           sucursal ( id_sucursal, nombre )
         )
-      `)
-      .eq('activo', true);
+      `);
 
-    if (!esAdmin && id_sucursal) {
-      query = query.eq('usuario_sucursal.id_sucursal', id_sucursal);
+    // Si no es admin, sólo mostrar activos
+    if (!esAdmin) {
+      query = query.eq('activo', true);
+    }
+
+    // Si no es admin, forzar filtro por la sucursal del usuario
+    if (!esAdmin && id_sucursal_usuario) {
+      query = query.eq('usuario_sucursal.id_sucursal', id_sucursal_usuario);
+    }
+
+    // Filtros de búsqueda y por rol/sucursal (sólo aplican si los provee el admin)
+    if (filtros) {
+      const { search, id_rol, id_sucursal } = filtros;
+
+      if (search && typeof search === 'string' && search.trim().length > 0) {
+        const q = `%${search.trim()}%`;
+        query = query.or(`nombre.ilike.${q},email.ilike.${q}`);
+      }
+
+      if (typeof id_rol === 'number' && id_rol > 0) {
+        query = query.eq('usuario_sucursal.id_rol', id_rol);
+      }
+
+      if (typeof id_sucursal === 'number' && id_sucursal > 0) {
+        query = query.eq('usuario_sucursal.id_sucursal', id_sucursal);
+      }
     }
 
     const { data, error } = await query.order('nombre');
@@ -44,12 +73,108 @@ export class UsuarioService {
         email:               u.email,
         activo:              u.activo,
         id_usuario_sucursal: asignacion?.id_usuario_sucursal ?? null,
-        id_rol:              asignacion?.rol?.id_rol ?? null,
+        id_rol:              asignacion?.id_rol ?? asignacion?.rol?.id_rol ?? null,
         rol:                 asignacion?.rol?.nombre ?? null,
-        id_sucursal:         asignacion?.sucursal?.id_sucursal ?? null,
+        id_sucursal:         asignacion?.id_sucursal ?? asignacion?.sucursal?.id_sucursal ?? null,
         sucursal:            asignacion?.sucursal?.nombre ?? null,
       };
     });
+  }
+
+  async actualizarUsuario(id_usuario: number, dto: { id_rol?: number; id_sucursal?: number; activo?: boolean }): Promise<void> {
+    const { id_rol, id_sucursal, activo } = dto;
+
+    // Obtener usuario
+    const { data: usuarioData, error: usuarioError } = await supabase
+      .from('usuario')
+      .select('id_usuario, nombre, email')
+      .eq('id_usuario', id_usuario)
+      .limit(1)
+      .single();
+
+    if (usuarioError || !usuarioData) throw new AppError('Usuario no encontrado', 404);
+
+    // Actualizar estado si viene
+    if (typeof activo === 'boolean') {
+      const { error: updError } = await supabase
+        .from('usuario')
+        .update({ activo })
+        .eq('id_usuario', id_usuario);
+
+      if (updError) throw new AppError('Error al actualizar estado del usuario', 500);
+    }
+
+    // Actualizar o insertar asignación sucursal/rol
+    if (typeof id_rol === 'number' || typeof id_sucursal === 'number') {
+      const { data: asignaciones, error: asigError } = await supabase
+        .from('usuario_sucursal')
+        .select('id_usuario_sucursal')
+        .eq('id_usuario', id_usuario)
+        .limit(1);
+
+      if (asigError) throw new AppError('Error al obtener asignación de sucursal', 500);
+
+      if (asignaciones && asignaciones.length > 0) {
+        const id_usuario_sucursal = asignaciones[0].id_usuario_sucursal;
+        const updateObj: any = {};
+        if (typeof id_rol === 'number') updateObj.id_rol = id_rol;
+        if (typeof id_sucursal === 'number') updateObj.id_sucursal = id_sucursal;
+
+        const { error: updAsigErr } = await supabase
+          .from('usuario_sucursal')
+          .update(updateObj)
+          .eq('id_usuario_sucursal', id_usuario_sucursal);
+
+        if (updAsigErr) throw new AppError('Error al actualizar asignación de sucursal/rol', 500);
+      } else {
+        const insertObj: any = { id_usuario };
+        if (typeof id_rol === 'number') insertObj.id_rol = id_rol;
+        if (typeof id_sucursal === 'number') insertObj.id_sucursal = id_sucursal;
+
+        const { error: insErr } = await supabase.from('usuario_sucursal').insert(insertObj);
+        if (insErr) throw new AppError('Error al crear asignación de sucursal/rol', 500);
+      }
+    }
+
+    // Actualizar metadata en Supabase Auth (buscar usuario con app_metadata.id_usuario)
+    try {
+      const list = await (supabase.auth.admin.listUsers() as any);
+      const users = (list?.data?.users) ?? list?.users ?? [];
+      const found = users.find((u: any) => {
+        return u?.app_metadata?.id_usuario === id_usuario || u?.app_metadata?.id_usuario === String(id_usuario);
+      });
+
+      if (found) {
+        const meta: any = {
+          id_usuario: usuarioData.id_usuario,
+          nombre: usuarioData.nombre,
+          rol: undefined,
+          id_rol: undefined,
+          id_sucursal: undefined,
+          id_usuario_sucursal: undefined,
+          sucursal: undefined,
+        };
+
+        if (typeof id_rol === 'number') meta.id_rol = id_rol;
+        if (typeof id_sucursal === 'number') meta.id_sucursal = id_sucursal;
+
+        // Intentar obtener nombres legibles para rol y sucursal
+        if (typeof id_rol === 'number') {
+          const { data: rolData } = await supabase.from('rol').select('nombre').eq('id_rol', id_rol).single();
+          meta.rol = (rolData as any)?.nombre ?? undefined;
+        }
+
+        if (typeof id_sucursal === 'number') {
+          const { data: sucData } = await supabase.from('sucursal').select('nombre').eq('id_sucursal', id_sucursal).single();
+          meta.sucursal = (sucData as any)?.nombre ?? undefined;
+        }
+
+        await supabase.auth.admin.updateUserById(found.id, { app_metadata: meta });
+      }
+    } catch (e) {
+      // No detener el flujo por fallas al actualizar metadata externa
+      console.error('Warning: no se pudo actualizar metadata en Auth:', e);
+    }
   }
 
   async listarRoles(): Promise<RolItem[]> {

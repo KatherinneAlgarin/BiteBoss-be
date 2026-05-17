@@ -1,10 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 
-export const authorizeRoles = (...roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const rolUsuario = req.usuario?.rol;
+const normalizeRole = (role: string): string => role.trim().toUpperCase();
 
-    if (!rolUsuario || !roles.includes(rolUsuario)) {
+export const authorizeRoles = (...roles: string[]) => {
+  const allowedRoles = new Set(roles.map(normalizeRole));
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const rolUsuario = typeof req.usuario?.rol === 'string'
+      ? normalizeRole(req.usuario.rol)
+      : '';
+
+    if (!rolUsuario || !allowedRoles.has(rolUsuario)) {
       res.status(403).json({ mensaje: 'No tienes permisos para realizar esta acción' });
       return;
     }
