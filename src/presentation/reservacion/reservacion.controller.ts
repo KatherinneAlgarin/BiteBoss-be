@@ -11,15 +11,26 @@ export class ReservacionController {
 
   async listar(req: Request, res: Response): Promise<void> {
     const id_sucursal = req.usuario!.id_sucursal;
-    const { estado: estadoParam } = req.query;
+    const { estado: estadoParam, fecha: fechaParam, zona: zonaParam } = req.query;
 
     let estado: EstadoReservacion | undefined;
     if (typeof estadoParam === 'string' && ESTADOS_VALIDOS.includes(estadoParam as EstadoReservacion)) {
       estado = estadoParam as EstadoReservacion;
     }
 
+    let fecha: string | undefined;
+    if (typeof fechaParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
+      fecha = fechaParam;
+    }
+
+    let id_zona: number | undefined;
+    if (typeof zonaParam === 'string') {
+      const parsed = parseInt(zonaParam, 10);
+      if (!isNaN(parsed) && parsed > 0) id_zona = parsed;
+    }
+
     try {
-      const reservaciones = await this.reservacionService.listar(id_sucursal, estado);
+      const reservaciones = await this.reservacionService.listar(id_sucursal, estado, fecha, id_zona);
       res.json(reservaciones);
     } catch (err) {
       if (err instanceof AppError) {

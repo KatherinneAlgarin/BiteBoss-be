@@ -7,12 +7,11 @@ export class ZonaController {
   constructor(private readonly zonaService = new ZonaService()) {}
 
   async listar(req: Request, res: Response): Promise<void> {
-    const id_sucursal_raw = req.query.id_sucursal;
-    const id_sucursal = parseInt(id_sucursal_raw as string, 10);
-    if (isNaN(id_sucursal) || id_sucursal <= 0) {
-      res.status(400).json({ mensaje: 'Debe indicar id_sucursal en la consulta' });
-      return;
-    }
+    // Admin puede pasar ?id_sucursal=X; otros roles usan la sucursal del token.
+    const fromQuery = parseInt(req.query.id_sucursal as string, 10);
+    const id_sucursal = !isNaN(fromQuery) && fromQuery > 0
+      ? fromQuery
+      : req.usuario!.id_sucursal;
 
     try {
       const zonas = await this.zonaService.listarPorSucursal(id_sucursal);
