@@ -8,6 +8,7 @@ export interface ActualizarReservacionDto {
   cantidad_personas?: number;
   id_zona?: number;
   id_mesa?: number;
+  tiempo_extra_minutos?: number;
 }
 
 export interface CrearReservacionDto {
@@ -18,6 +19,7 @@ export interface CrearReservacionDto {
   cantidad_personas: number;
   id_zona: number;
   id_mesa: number;
+  tiempo_extra_minutos?: number;
 }
 
 export interface ReservacionItem {
@@ -33,6 +35,7 @@ export interface ReservacionItem {
   mesa_numero: number;
   id_sucursal: number;
   id_usuario_sucursal: number;
+  duracion_minutos: number;
   estado: EstadoReservacion;
   activo: boolean;
   creado_en: string;

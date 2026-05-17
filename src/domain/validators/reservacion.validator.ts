@@ -1,7 +1,9 @@
 import { CrearReservacionDto, ActualizarReservacionDto } from '../interfaces/reservacion.interface';
 
+const TIEMPOS_EXTRA_VALIDOS = [0, 30, 60, 90];
+
 export function validateActualizarReservacion(body: any): { data?: ActualizarReservacionDto; error?: string } {
-  const { nombre_cliente, telefono, email, fecha_llegada, cantidad_personas, id_zona, id_mesa } = body ?? {};
+  const { nombre_cliente, telefono, email, fecha_llegada, cantidad_personas, id_zona, id_mesa, tiempo_extra_minutos } = body ?? {};
 
   if (nombre_cliente !== undefined && (typeof nombre_cliente !== 'string' || nombre_cliente.trim().length === 0)) {
     return { error: 'El nombre del cliente no puede estar vacío.' };
@@ -36,20 +38,25 @@ export function validateActualizarReservacion(body: any): { data?: ActualizarRes
     return { error: 'La mesa debe ser un identificador entero positivo.' };
   }
 
+  if (tiempo_extra_minutos !== undefined && !TIEMPOS_EXTRA_VALIDOS.includes(tiempo_extra_minutos)) {
+    return { error: 'El tiempo extra debe ser 0, 30, 60 o 90 minutos.' };
+  }
+
   const data: ActualizarReservacionDto = {};
-  if (nombre_cliente !== undefined) data.nombre_cliente = nombre_cliente.trim();
-  if (telefono !== undefined)       data.telefono = telefono?.trim() ?? null;
-  if (email !== undefined)          data.email = email?.trim() ?? null;
-  if (fecha_llegada !== undefined)  data.fecha_llegada = fecha_llegada.trim();
-  if (cantidad_personas !== undefined) data.cantidad_personas = cantidad_personas;
-  if (id_zona !== undefined)        data.id_zona = id_zona;
-  if (id_mesa !== undefined)        data.id_mesa = id_mesa;
+  if (nombre_cliente !== undefined)       data.nombre_cliente       = nombre_cliente.trim();
+  if (telefono !== undefined)             data.telefono             = telefono?.trim() ?? null;
+  if (email !== undefined)                data.email                = email?.trim() ?? null;
+  if (fecha_llegada !== undefined)        data.fecha_llegada        = fecha_llegada.trim();
+  if (cantidad_personas !== undefined)    data.cantidad_personas    = cantidad_personas;
+  if (id_zona !== undefined)             data.id_zona              = id_zona;
+  if (id_mesa !== undefined)             data.id_mesa              = id_mesa;
+  if (tiempo_extra_minutos !== undefined) data.tiempo_extra_minutos = tiempo_extra_minutos;
 
   return { data };
 }
 
 export function validateCrearReservacion(body: any): { data?: CrearReservacionDto; error?: string } {
-  const { nombre_cliente, telefono, email, fecha_llegada, cantidad_personas, id_zona, id_mesa } = body ?? {};
+  const { nombre_cliente, telefono, email, fecha_llegada, cantidad_personas, id_zona, id_mesa, tiempo_extra_minutos } = body ?? {};
 
   if (!nombre_cliente || typeof nombre_cliente !== 'string' || nombre_cliente.trim().length === 0) {
     return { error: 'El nombre del cliente es requerido.' };
@@ -67,8 +74,7 @@ export function validateCrearReservacion(body: any): { data?: CrearReservacionDt
     return { error: 'La fecha y hora de llegada es requerida.' };
   }
 
-  const fechaDate = new Date(fecha_llegada);
-  if (isNaN(fechaDate.getTime())) {
+  if (isNaN(new Date(fecha_llegada).getTime())) {
     return { error: 'La fecha y hora de llegada no tiene un formato válido.' };
   }
 
@@ -84,15 +90,20 @@ export function validateCrearReservacion(body: any): { data?: CrearReservacionDt
     return { error: 'La mesa es requerida y debe ser un identificador entero positivo.' };
   }
 
+  if (tiempo_extra_minutos !== undefined && !TIEMPOS_EXTRA_VALIDOS.includes(tiempo_extra_minutos)) {
+    return { error: 'El tiempo extra debe ser 0, 30, 60 o 90 minutos.' };
+  }
+
   return {
     data: {
-      nombre_cliente: nombre_cliente.trim(),
-      telefono: telefono?.trim() ?? null,
-      email: email?.trim() ?? null,
-      fecha_llegada: fecha_llegada.trim(),
+      nombre_cliente:       nombre_cliente.trim(),
+      telefono:             telefono?.trim() ?? null,
+      email:                email?.trim() ?? null,
+      fecha_llegada:        fecha_llegada.trim(),
       cantidad_personas,
       id_zona,
       id_mesa,
+      tiempo_extra_minutos: tiempo_extra_minutos ?? 0,
     },
   };
 }
