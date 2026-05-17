@@ -174,6 +174,10 @@ export class ReservacionService {
       throw new AppError('Solo se pueden editar reservaciones en estado pendiente', 409);
     }
 
+    if (new Date(actual.fecha_llegada) < new Date()) {
+      throw new AppError('No se puede editar una reservación cuya fecha de llegada ya pasó', 409);
+    }
+
     const zonaFinal     = dto.id_zona          ?? actual.id_zona;
     const mesaFinal     = dto.id_mesa           ?? actual.id_mesa;
     const personasFinal = dto.cantidad_personas ?? actual.cantidad_personas;
