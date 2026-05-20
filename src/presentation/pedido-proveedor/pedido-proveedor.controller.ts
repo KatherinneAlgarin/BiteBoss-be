@@ -66,11 +66,15 @@ export class PedidoProveedorController {
     const { data, error } = validateEditarPedidoProveedor(req.body);
     if (error) { res.status(400).json({ mensaje: error }); return; }
 
-    const id_usuario = (req as any).usuario?.id_usuario;
+    const usuario = (req as any).usuario;
+    const id_usuario = usuario?.id_usuario;
     if (!id_usuario) { res.status(401).json({ mensaje: 'Usuario no autenticado' }); return; }
 
     try {
-      const pedido = await this.service.actualizar(id, data!, id_usuario);
+      const pedido = await this.service.actualizar(id, data!, id_usuario, {
+        id_sucursal: usuario?.id_sucursal ?? null,
+        rol: usuario?.rol ?? '',
+      });
       res.json(pedido);
     } catch (err) {
       if (err instanceof AppError) { res.status(err.statusCode).json({ mensaje: err.message }); return; }
