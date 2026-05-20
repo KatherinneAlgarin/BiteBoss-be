@@ -19,6 +19,7 @@ export interface PedidoProveedorItem {
   fecha_entrega: string | null;
   estado: 'PENDIENTE' | 'RECIBIDO' | 'CANCELADO';
   monto_total: number;
+  nombre_creador: string;
   detalles?: PedidoProveedorDetalleItem[];
 }
 

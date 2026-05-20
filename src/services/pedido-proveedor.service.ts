@@ -53,6 +53,7 @@ export class PedidoProveedorService {
       fecha_entrega: r.fecha_entrega ?? null,
       estado: r.estado,
       monto_total: Number(r.monto_total),
+      nombre_creador: '',
     }));
   }
 
@@ -65,11 +66,22 @@ export class PedidoProveedorService {
 
     if (error || !pedido) throw new AppError('Pedido no encontrado', 404);
 
-    // Fetch proveedor and sucursal names
-    const [{ data: proveedor }, { data: sucursal }] = await Promise.all([
+    // Fetch proveedor, sucursal and creator name
+    const [{ data: proveedor }, { data: sucursal }, { data: usuarioSucursal }] = await Promise.all([
       supabase.from('proveedor').select('nombre').eq('id_proveedor', pedido.id_proveedor).single(),
       supabase.from('sucursal').select('nombre').eq('id_sucursal', pedido.id_sucursal).single(),
+      supabase.from('usuario_sucursal').select('id_usuario').eq('id_usuario_sucursal', pedido.id_usuario_sucursal).single(),
     ]);
+
+    let nombreCreador = '';
+    if (usuarioSucursal?.id_usuario) {
+      const { data: usuario } = await supabase
+        .from('usuario')
+        .select('nombre')
+        .eq('id_usuario', usuarioSucursal.id_usuario)
+        .single();
+      nombreCreador = usuario?.nombre ?? '';
+    }
 
     // Fetch detalles
     const { data: detalles, error: detallesError } = await supabase
@@ -116,6 +128,7 @@ export class PedidoProveedorService {
       fecha_entrega: pedido.fecha_entrega ?? null,
       estado: pedido.estado,
       monto_total: Number(pedido.monto_total),
+      nombre_creador: nombreCreador,
       detalles: detallesMapeados,
     };
   }
