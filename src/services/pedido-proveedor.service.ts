@@ -185,11 +185,29 @@ export class PedidoProveedorService {
     return this.obtenerConDetalle(nuevoPedido.id_pedido_proveedor);
   }
 
-  async actualizar(id_pedido_proveedor: number, dto: EditarPedidoProveedorDto, id_usuario: number): Promise<PedidoProveedorItem> {
+  async actualizar(
+    id_pedido_proveedor: number,
+    dto: EditarPedidoProveedorDto,
+    id_usuario: number,
+    usuario_context: { id_sucursal: number | null; rol: string },
+  ): Promise<PedidoProveedorItem> {
     const auditoriaService = new AuditoriaService();
 
     // Snapshot anterior completo
     const anterior = await this.obtenerConDetalle(id_pedido_proveedor);
+
+    // Autorización: encargado solo puede modificar órdenes de su sucursal
+    if (usuario_context.rol !== 'admin' && anterior.id_sucursal !== usuario_context.id_sucursal) {
+      throw new AppError('No tienes permiso para modificar esta orden', 403);
+    }
+
+    // Validación de transición de estado
+    if (anterior.estado === 'RECIBIDO') {
+      throw new AppError('Una orden recibida no puede modificarse', 400);
+    }
+    if (anterior.estado === 'CANCELADO') {
+      throw new AppError('Una orden cancelada no puede modificarse', 400);
+    }
 
     const camposModificados: string[] = [];
     const headerUpdate: Record<string, unknown> = {};
@@ -199,7 +217,11 @@ export class PedidoProveedorService {
       camposModificados.push('estado');
     }
 
-    if (dto.fecha_entrega !== undefined) {
+    // Auto fecha_entrega al confirmar recepción
+    if (dto.estado === 'RECIBIDO') {
+      headerUpdate.fecha_entrega = new Date().toISOString();
+      camposModificados.push('fecha_entrega');
+    } else if (dto.fecha_entrega !== undefined) {
       const fechaAnterior = anterior.fecha_entrega ?? null;
       const fechaNueva = dto.fecha_entrega ?? null;
       if (fechaAnterior !== fechaNueva) {
