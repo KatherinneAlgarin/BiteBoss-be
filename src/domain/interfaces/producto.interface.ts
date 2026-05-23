@@ -6,6 +6,8 @@ export interface ProductoDto {
   id_categoria: number;
   id_sucursal?: number;
   ids_sucursales?: number[];
+  ingredientes?: ProductoIngredienteDto[];
+  productos_combo?: ProductoComboDto[];
   activo: boolean;
   imagen?: string;
 }
@@ -19,6 +21,15 @@ export interface ProductoListItem {
   categoria_nombre?: string;
   activo: boolean;
   ids_sucursales?: number[];
+  es_combo?: boolean;
+}
+
+export interface ProductoIngredienteDto {
+  id_ingrediente: number;
+  cantidad: number;
+  activo?: boolean;
+  nombre_ingrediente?: string;
+  unidad_medida?: string;
 }
 
 export interface ProductoSucursalItem {
@@ -32,4 +43,18 @@ export interface CategoriaDto {
   descripcion?: string;
   id_sucursal: number;
   activo: boolean;
+}
+
+export interface ProductoComboDto {
+  id_producto_hijo: number;
+  cantidad: number;
+  activo?: boolean;
+  nombre_producto?: string;
+}
+
+export interface ProductoDependenciasDesactivacionDto {
+  id_producto: number;
+  tiene_pedidos_activos: boolean;
+  total_pedidos_activos: number;
+  mensaje_advertencia?: string;
 }

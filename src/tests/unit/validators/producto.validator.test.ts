@@ -129,7 +129,38 @@ describe('producto.validator', () => {
         activo: true,
       });
 
-      expect(result.error).toContain('El ID de sucursal es requerido');
+      expect(result.error).toContain('Debe enviar al menos una sucursal válida');
+    });
+
+    it('debería aceptar ingredientes válidos en creación', () => {
+      const result = validateCrearProducto({
+        nombre: 'Pizza Especial',
+        precio: 32,
+        id_categoria: 1,
+        id_sucursal: 1,
+        ingredientes: [
+          { id_ingrediente: 1, cantidad: 0.2 },
+          { id_ingrediente: 2, cantidad: 0.1 },
+        ],
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.ingredientes).toHaveLength(2);
+    });
+
+    it('debería rechazar ingredientes duplicados en creación', () => {
+      const result = validateCrearProducto({
+        nombre: 'Pizza Especial',
+        precio: 32,
+        id_categoria: 1,
+        id_sucursal: 1,
+        ingredientes: [
+          { id_ingrediente: 1, cantidad: 0.2 },
+          { id_ingrediente: 1, cantidad: 0.1 },
+        ],
+      });
+
+      expect(result.error).toContain('No se puede repetir el mismo ingrediente');
     });
 
     // ❌ CASOS DE ERROR - ACTIVO
@@ -217,6 +248,23 @@ describe('producto.validator', () => {
       });
 
       expect(result.error).toContain('El campo activo debe ser un booleano');
+    });
+
+    it('debería permitir limpiar ingredientes en actualización con arreglo vacío', () => {
+      const result = validateActualizarProducto({
+        ingredientes: [],
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.data?.ingredientes).toEqual([]);
+    });
+
+    it('debería rechazar ingrediente con cantidad inválida en actualización', () => {
+      const result = validateActualizarProducto({
+        ingredientes: [{ id_ingrediente: 1, cantidad: 0 }],
+      });
+
+      expect(result.error).toContain('La cantidad de cada ingrediente debe ser un número mayor a 0');
     });
   });
 

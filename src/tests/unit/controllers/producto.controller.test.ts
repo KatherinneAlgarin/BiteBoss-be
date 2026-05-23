@@ -24,6 +24,7 @@ describe('ProductoController', () => {
       listarProductos: jest.fn(),
       obtenerProductoPorId: jest.fn(),
       obtenerSucursalesDeProducto: jest.fn(),
+      obtenerIngredientesDeProducto: jest.fn(),
       crearProducto: jest.fn(),
       actualizarProducto: jest.fn(),
       eliminarProducto: jest.fn(),
@@ -201,6 +202,26 @@ describe('ProductoController', () => {
       const req = { params: { id: '1' } } as any;
       await controller.obtenerSucursalesDeProducto(req, res);
       expect(res.json).toHaveBeenCalledWith([{ id_sucursal: 1, activo: true }]);
+    });
+  });
+
+  describe('obtenerIngredientesDeProducto', () => {
+    it('debería retornar 400 si el id no es válido', async () => {
+      const req = { params: { id: 'abc' } } as any;
+      await controller.obtenerIngredientesDeProducto(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('debería retornar ingredientes del producto', async () => {
+      mockProductoService.obtenerIngredientesDeProducto.mockResolvedValueOnce([
+        { id_ingrediente: 1, cantidad: 0.25, nombre_ingrediente: 'Queso', unidad_medida: 'kg', activo: true },
+      ]);
+
+      const req = { params: { id: '1' } } as any;
+      await controller.obtenerIngredientesDeProducto(req, res);
+      expect(res.json).toHaveBeenCalledWith([
+        { id_ingrediente: 1, cantidad: 0.25, nombre_ingrediente: 'Queso', unidad_medida: 'kg', activo: true },
+      ]);
     });
   });
 

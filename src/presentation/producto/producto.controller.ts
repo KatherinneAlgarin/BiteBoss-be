@@ -78,7 +78,10 @@ export class ProductoController {
     }
 
     try {
-      const producto = await this.productoService.crearProducto(data!);
+      const producto = await this.productoService.crearProducto(data!, {
+        id_usuario: req.usuario?.id_usuario,
+        id_usuario_sucursal: req.usuario?.id_usuario_sucursal,
+      });
       res.status(201).json(producto);
     } catch (err) {
       if (err instanceof AppError) {
@@ -106,7 +109,23 @@ export class ProductoController {
     const actorRol = String(req.usuario?.rol ?? '').toUpperCase();
     const actorSucursal = req.usuario?.id_sucursal;
     const sucursalesDestino = data!.ids_sucursales;
-    if (actorRol !== 'ADMIN' && sucursalesDestino && sucursalesDestino.length > 0) {
+    if (actorRol && actorRol !== 'ADMIN') {
+      if (!actorSucursal) {
+        res.status(400).json({ mensaje: 'No se pudo determinar la sucursal del usuario.' });
+        return;
+      }
+
+      const productoPerteneceASucursal = (this.productoService as any).productoPerteneceASucursal;
+      if (typeof productoPerteneceASucursal === 'function') {
+        const perteneceASucursal = await productoPerteneceASucursal.call(this.productoService, id_producto, actorSucursal);
+        if (!perteneceASucursal) {
+          res.status(403).json({ mensaje: 'Solo puedes editar productos de tu sucursal.' });
+          return;
+        }
+      }
+    }
+
+    if (actorRol && actorRol !== 'ADMIN' && sucursalesDestino && sucursalesDestino.length > 0) {
       if (!actorSucursal) {
         res.status(400).json({ mensaje: 'No se pudo determinar la sucursal del usuario.' });
         return;
@@ -120,7 +139,10 @@ export class ProductoController {
     }
 
     try {
-      const producto = await this.productoService.actualizarProducto(id_producto, data!);
+      const producto = await this.productoService.actualizarProducto(id_producto, data!, {
+        id_usuario: req.usuario?.id_usuario,
+        id_usuario_sucursal: req.usuario?.id_usuario_sucursal,
+      });
       res.json(producto);
     } catch (err) {
       if (err instanceof AppError) {
@@ -151,7 +173,7 @@ export class ProductoController {
     }
   }
 
-  async eliminarProducto(req: Request, res: Response): Promise<void> {
+  async obtenerIngredientesDeProducto(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const id_producto = parseInt(id as string, 10);
     if (isNaN(id_producto)) {
@@ -160,7 +182,72 @@ export class ProductoController {
     }
 
     try {
-      await this.productoService.eliminarProducto(id_producto);
+      const ingredientes = await this.productoService.obtenerIngredientesDeProducto(id_producto);
+      res.json(ingredientes);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
+  async obtenerComponentesCombo(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const id_producto = parseInt(id as string, 10);
+    if (isNaN(id_producto)) {
+      res.status(400).json({ mensaje: 'ID de producto inválido' });
+      return;
+    }
+
+    try {
+      const componentes = await this.productoService.obtenerComponentesCombo(id_producto);
+      res.json(componentes);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
+  async verificarDependenciasDesactivacion(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const id_producto = parseInt(id as string, 10);
+    if (isNaN(id_producto)) {
+      res.status(400).json({ mensaje: 'ID de producto inválido' });
+      return;
+    }
+
+    try {
+      const dependencias = await this.productoService.verificarDependenciasDesactivacion(id_producto);
+      res.json(dependencias);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
+  async eliminarProducto(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const id_producto = parseInt(id as string, 10);
+    if (isNaN(id_producto)) {
+      res.status(400).json({ mensaje: 'ID de producto inválido' });
+      return;
+    }
+
+    const forzar = String(req.query?.forzar ?? '').toLowerCase() === 'true';
+
+    try {
+      await this.productoService.eliminarProducto(id_producto, {
+        id_usuario: req.usuario?.id_usuario,
+        forzar,
+      });
       res.status(204).send();
     } catch (err) {
       if (err instanceof AppError) {

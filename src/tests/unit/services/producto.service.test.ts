@@ -440,4 +440,59 @@ describe('ProductoService', () => {
       );
     });
   });
+
+  describe('obtenerIngredientesDeProducto', () => {
+    it('debería listar ingredientes activos del producto', async () => {
+      mockSupabase.from().mockResult({
+        data: [
+          {
+            id_ingrediente: 1,
+            cantidad: 0.25,
+            activo: true,
+            ingrediente: { id_ingrediente: 1, nombre: 'Queso', unidad_medida: 'kg', activo: true },
+          },
+        ],
+        error: null,
+      });
+
+      const resultado = await productoService.obtenerIngredientesDeProducto(1);
+
+      expect(resultado).toEqual([
+        {
+          id_ingrediente: 1,
+          cantidad: 0.25,
+          activo: true,
+          nombre_ingrediente: 'Queso',
+          unidad_medida: 'kg',
+        },
+      ]);
+    });
+
+    it('debería lanzar error cuando falla la consulta', async () => {
+      mockSupabase.from().mockResult({ data: null, error: { message: 'Error DB' } });
+
+      await expect(productoService.obtenerIngredientesDeProducto(1)).rejects.toThrow(
+        new AppError('Error al obtener ingredientes del producto', 500)
+      );
+    });
+  });
+
+  describe('actualizarProducto con ingredientes', () => {
+    it('debería sincronizar ingredientes cuando se envían en actualización', async () => {
+      mockSupabase.from().update().eq().select().single.mockResolvedValue({
+        data: { id_producto: 1, nombre: 'Pizza', precio: 20, activo: true },
+        error: null,
+      });
+
+      mockSupabase.from().mockResult({ data: [{ id_ingrediente: 1 }], error: null });
+      mockSupabase.from().mockResult({ data: null, error: null });
+      mockSupabase.from().mockResult({ data: null, error: null });
+
+      await expect(
+        productoService.actualizarProducto(1, {
+          ingredientes: [{ id_ingrediente: 1, cantidad: 0.3 }],
+        } as any)
+      ).resolves.toBeDefined();
+    });
+  });
 });
