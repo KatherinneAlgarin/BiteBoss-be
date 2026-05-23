@@ -1,7 +1,7 @@
 import { ProductoDto, CategoriaDto } from '../interfaces/producto.interface';
 
 export function validateCrearProducto(body: any): { data?: ProductoDto; error?: string } {
-  const { nombre, descripcion, precio, id_categoria, id_sucursal, activo = true, imagen } = body ?? {};
+  const { nombre, descripcion, precio, id_categoria, id_sucursal, ids_sucursales, activo = true, imagen } = body ?? {};
 
   if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
     return { error: 'El nombre del producto es requerido y debe ser una cadena no vacía.' };
@@ -15,8 +15,14 @@ export function validateCrearProducto(body: any): { data?: ProductoDto; error?: 
     return { error: 'El ID de categoría es requerido y debe ser un número.' };
   }
 
-  if (!id_sucursal || typeof id_sucursal !== 'number') {
-    return { error: 'El ID de sucursal es requerido y debe ser un número.' };
+  const sucursalesNormalizadas = Array.isArray(ids_sucursales)
+    ? Array.from(new Set(ids_sucursales.filter((id: any) => typeof id === 'number')))
+    : typeof id_sucursal === 'number'
+      ? [id_sucursal]
+      : [];
+
+  if (sucursalesNormalizadas.length === 0) {
+    return { error: 'Debe enviar al menos una sucursal válida para el producto.' };
   }
 
   if (typeof activo !== 'boolean') {
@@ -33,7 +39,8 @@ export function validateCrearProducto(body: any): { data?: ProductoDto; error?: 
       descripcion: descripcion?.trim(),
       precio,
       id_categoria,
-      id_sucursal,
+      id_sucursal: sucursalesNormalizadas[0],
+      ids_sucursales: sucursalesNormalizadas,
       activo,
       imagen,
     },
@@ -41,7 +48,7 @@ export function validateCrearProducto(body: any): { data?: ProductoDto; error?: 
 }
 
 export function validateActualizarProducto(body: any): { data?: Partial<ProductoDto>; error?: string } {
-  const { nombre, descripcion, precio, id_categoria, activo, imagen } = body ?? {};
+  const { nombre, descripcion, precio, id_categoria, activo, imagen, ids_sucursales } = body ?? {};
 
   if (nombre !== undefined && (typeof nombre !== 'string' || nombre.trim().length === 0)) {
     return { error: 'El nombre debe ser una cadena no vacía.' };
@@ -63,6 +70,17 @@ export function validateActualizarProducto(body: any): { data?: Partial<Producto
     return { error: 'La imagen debe ser una cadena.' };
   }
 
+  if (ids_sucursales !== undefined) {
+    if (!Array.isArray(ids_sucursales)) {
+      return { error: 'ids_sucursales debe ser un arreglo de números.' };
+    }
+
+    const normalizadas = Array.from(new Set(ids_sucursales.filter((id: any) => typeof id === 'number')));
+    if (normalizadas.length === 0) {
+      return { error: 'Debe enviar al menos una sucursal válida para actualizar.' };
+    }
+  }
+
   return {
     data: {
       ...(nombre !== undefined && { nombre: nombre.trim() }),
@@ -71,6 +89,7 @@ export function validateActualizarProducto(body: any): { data?: Partial<Producto
       ...(id_categoria !== undefined && { id_categoria }),
       ...(activo !== undefined && { activo }),
       ...(imagen !== undefined && { imagen }),
+      ...(ids_sucursales !== undefined && { ids_sucursales: Array.from(new Set(ids_sucursales.filter((id: any) => typeof id === 'number'))) }),
     },
   };
 }

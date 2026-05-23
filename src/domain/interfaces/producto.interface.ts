@@ -4,7 +4,8 @@ export interface ProductoDto {
   descripcion?: string;
   precio: number;
   id_categoria: number;
-  id_sucursal: number;
+  id_sucursal?: number;
+  ids_sucursales?: number[];
   activo: boolean;
   imagen?: string;
 }
@@ -16,6 +17,12 @@ export interface ProductoListItem {
   descripcion?: string;
   id_categoria: number;
   categoria_nombre?: string;
+  activo: boolean;
+  ids_sucursales?: number[];
+}
+
+export interface ProductoSucursalItem {
+  id_sucursal: number;
   activo: boolean;
 }
 

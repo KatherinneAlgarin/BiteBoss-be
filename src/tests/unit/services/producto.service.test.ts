@@ -185,6 +185,27 @@ describe('ProductoService', () => {
       expect(resultado.precio).toBe(28.99);
     });
 
+    it('debería crear un producto y asociarlo a múltiples sucursales', async () => {
+      const dtoMulti = {
+        ...crearProductoDto,
+        ids_sucursales: [1, 2],
+      };
+
+      mockSupabase.from().insert().select().single.mockResolvedValueOnce({
+        data: { id_producto: 1, ...dtoMulti },
+        error: null,
+      });
+
+      // Dos inserciones en sucursal_producto
+      mockSupabase.from().mockResult({ data: null, error: null });
+      mockSupabase.from().mockResult({ data: null, error: null });
+
+      const resultado = await productoService.crearProducto(dtoMulti as any);
+
+      expect(resultado.nombre).toBe('Pizza Hawaiana');
+      expect(resultado.precio).toBe(28.99);
+    });
+
     // ❌ CASOS DE ERROR
     it('debería lanzar error si falla al crear producto', async () => {
       mockSupabase.from().insert().select().single.mockResolvedValueOnce({
@@ -210,6 +231,9 @@ describe('ProductoService', () => {
       await expect(productoService.crearProducto(crearProductoDto)).rejects.toThrow(
         new AppError('Error al asociar producto con sucursal', 500)
       );
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('producto');
+      expect(mockSupabase.from().delete).toHaveBeenCalled();
     });
   });
 
@@ -238,6 +262,35 @@ describe('ProductoService', () => {
 
       expect(resultado.nombre).toBe('Pizza Margarita Premium');
       expect(resultado.precio).toBe(30.99);
+    });
+
+    it('debería actualizar un producto y sincronizar sucursales', async () => {
+      const productoActualizado = {
+        id_producto: 1,
+        nombre: 'Pizza Margarita Premium',
+        precio: 30.99,
+        activo: true,
+      };
+
+      mockSupabase.from().update().eq().select().single.mockResolvedValue({
+        data: productoActualizado,
+        error: null,
+      });
+
+      // delete vínculos actuales
+      mockSupabase.from().mockResult({ data: null, error: null });
+      // insert vínculo 1
+      mockSupabase.from().mockResult({ data: null, error: null });
+      // insert vínculo 2
+      mockSupabase.from().mockResult({ data: null, error: null });
+
+      const resultado = await productoService.actualizarProducto(1, {
+        ...actualizarDto,
+        ids_sucursales: [1, 2],
+      } as any);
+
+      expect(resultado.nombre).toBe('Pizza Margarita Premium');
+      expect(mockSupabase.from().delete).toHaveBeenCalled();
     });
 
     // ❌ CASOS DE ERROR
@@ -354,6 +407,36 @@ describe('ProductoService', () => {
 
       await expect(productoService.crearCategoria(crearCategoriaDto)).rejects.toThrow(
         new AppError('Error al crear categoría', 500)
+      );
+    });
+  });
+
+  describe('obtenerSucursalesDeProducto', () => {
+    it('debería listar sucursales activas asociadas a un producto', async () => {
+      mockSupabase.from().select().eq().eq.mockResolvedValue({
+        data: [
+          { id_sucursal: 1, activo: true },
+          { id_sucursal: 2, activo: true },
+        ],
+        error: null,
+      });
+
+      const resultado = await productoService.obtenerSucursalesDeProducto(1);
+
+      expect(resultado).toEqual([
+        { id_sucursal: 1, activo: true },
+        { id_sucursal: 2, activo: true },
+      ]);
+    });
+
+    it('debería lanzar error cuando falla la consulta', async () => {
+      mockSupabase.from().select().eq().eq.mockResolvedValue({
+        data: null,
+        error: { message: 'Error DB' },
+      });
+
+      await expect(productoService.obtenerSucursalesDeProducto(1)).rejects.toThrow(
+        new AppError('Error al obtener sucursales del producto', 500)
       );
     });
   });

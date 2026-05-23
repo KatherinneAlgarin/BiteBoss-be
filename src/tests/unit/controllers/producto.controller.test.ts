@@ -23,6 +23,7 @@ describe('ProductoController', () => {
     mockProductoService = {
       listarProductos: jest.fn(),
       obtenerProductoPorId: jest.fn(),
+      obtenerSucursalesDeProducto: jest.fn(),
       crearProducto: jest.fn(),
       actualizarProducto: jest.fn(),
       eliminarProducto: jest.fn(),
@@ -31,7 +32,7 @@ describe('ProductoController', () => {
     };
     controller = new ProductoController(mockProductoService);
     res = { json: jest.fn(), status: jest.fn().mockReturnThis(), send: jest.fn() };
-    productoValidator.validateCrearProducto.mockReturnValue({ data: { nombre: 'Hamburguesa', precio: 15 }, error: null });
+    productoValidator.validateCrearProducto.mockReturnValue({ data: { nombre: 'Hamburguesa', precio: 15, id_sucursal: 1, ids_sucursales: [1] }, error: null });
     productoValidator.validateActualizarProducto.mockReturnValue({ data: { precio: 20 }, error: null });
     productoValidator.validateCrearCategoria.mockReturnValue({ data: { nombre: 'Comida rápida' }, error: null });
   });
@@ -99,22 +100,39 @@ describe('ProductoController', () => {
 
     it('debería crear el producto y responder 201', async () => {
       mockProductoService.crearProducto.mockResolvedValueOnce(productoBase);
-      const req = { body: { nombre: 'Hamburguesa', precio: 15 } } as any;
+      const req = { body: { nombre: 'Hamburguesa', precio: 15 }, usuario: { id_usuario: 1, id_sucursal: 1, rol: 'gerente' } } as any;
       await controller.crearProducto(req, res);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(productoBase);
     });
 
+    it('debería responder 403 si un no-admin intenta crear para otra sucursal', async () => {
+      productoValidator.validateCrearProducto.mockReturnValue({
+        data: { nombre: 'Hamburguesa', precio: 15, id_sucursal: 2, ids_sucursales: [1, 2] },
+        error: null,
+      });
+
+      const req = {
+        body: { nombre: 'Hamburguesa', precio: 15, id_sucursal: 2 },
+        usuario: { id_usuario: 10, id_sucursal: 1, rol: 'gerente' },
+      } as any;
+
+      await controller.crearProducto(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(mockProductoService.crearProducto).not.toHaveBeenCalled();
+    });
+
     it('debería responder con el statusCode del AppError', async () => {
       mockProductoService.crearProducto.mockRejectedValueOnce(new AppError('Nombre duplicado', 409));
-      const req = { body: {} } as any;
+      const req = { body: {}, usuario: { id_usuario: 1, id_sucursal: 1, rol: 'gerente' } } as any;
       await controller.crearProducto(req, res);
       expect(res.status).toHaveBeenCalledWith(409);
     });
 
     it('debería responder 500 ante error inesperado', async () => {
       mockProductoService.crearProducto.mockRejectedValueOnce(new Error('boom'));
-      const req = { body: {} } as any;
+      const req = { body: {}, usuario: { id_usuario: 1, id_sucursal: 1, rol: 'gerente' } } as any;
       await controller.crearProducto(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
     });
@@ -147,6 +165,42 @@ describe('ProductoController', () => {
       const req = { params: { id: '1' }, body: {} } as any;
       await controller.actualizarProducto(req, res);
       expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it('debería responder 403 si no-admin intenta actualizar sucursales fuera de su sucursal', async () => {
+      productoValidator.validateActualizarProducto.mockReturnValue({
+        data: { ids_sucursales: [1, 2] },
+        error: null,
+      });
+
+      const req = {
+        params: { id: '1' },
+        body: { ids_sucursales: [1, 2] },
+        usuario: { id_usuario: 10, id_sucursal: 1, rol: 'gerente' },
+      } as any;
+
+      await controller.actualizarProducto(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(mockProductoService.actualizarProducto).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('obtenerSucursalesDeProducto', () => {
+    it('debería retornar 400 si el id no es válido', async () => {
+      const req = { params: { id: 'abc' } } as any;
+      await controller.obtenerSucursalesDeProducto(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('debería retornar sucursales del producto', async () => {
+      mockProductoService.obtenerSucursalesDeProducto.mockResolvedValueOnce([
+        { id_sucursal: 1, activo: true },
+      ]);
+
+      const req = { params: { id: '1' } } as any;
+      await controller.obtenerSucursalesDeProducto(req, res);
+      expect(res.json).toHaveBeenCalledWith([{ id_sucursal: 1, activo: true }]);
     });
   });
 
