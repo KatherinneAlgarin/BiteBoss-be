@@ -24,6 +24,33 @@ export interface InventarioIngredienteItem {
   vencido: boolean;
 }
 
+export interface InventarioMovimientoItem {
+  id_movimiento: number;
+  fecha: string | null;
+  tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
+  id_inventario: number;
+  id_ingrediente: number | null;
+  nombre_ingrediente: string;
+  id_bodega: number;
+  nombre_bodega: string;
+  id_usuario: number | null;
+  nombre_usuario: string;
+  cantidad: number;
+  stock_anterior: number;
+  stock_nuevo: number;
+  nota: string;
+}
+
+export interface ListarMovimientosInventarioDto {
+  id_sucursal: number;
+  id_ingrediente?: number;
+  id_bodega?: number;
+  id_usuario?: number;
+  desde?: string;
+  hasta?: string;
+  limit?: number;
+}
+
 export interface RegistrarStockIngredienteDto {
   id_ingrediente: number;
   id_bodega: number;
@@ -35,10 +62,8 @@ export interface RegistrarStockIngredienteDto {
 }
 
 export interface AjusteStockDto {
-  tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
-  cantidad: number;
-  lote?: string;
-  fecha_vencimiento?: string;
+  nueva_cantidad: number;
+  nota: string;
 }
 
 export interface ActualizarLimitesDto {

@@ -3,6 +3,8 @@ import { AppError } from '../helpers/app-error';
 import type {
   InventarioStockActualItem,
   InventarioIngredienteItem,
+  InventarioMovimientoItem,
+  ListarMovimientosInventarioDto,
   RegistrarStockIngredienteDto,
   AjusteStockDto,
   ActualizarLimitesDto,
@@ -17,6 +19,80 @@ type InventarioProductoRow = {
 };
 
 export class InventarioService {
+
+  private normalizeRole(role: string | undefined): string {
+    return (role ?? '').trim().toUpperCase();
+  }
+
+  private isMissingColumnError(error: unknown, columnName: string): boolean {
+    const message = String((error as any)?.message ?? '').toLowerCase();
+    return message.includes(columnName.toLowerCase()) && (
+      message.includes('column') || message.includes('schema') || message.includes('pgrst204')
+    );
+  }
+
+  private extractNotaFromRow(row: Record<string, unknown>): string {
+    const candidates = [
+      row.nota,
+      row.observacion,
+      row.comentario,
+      row.motivo,
+      row.descripcion,
+      row.detalle,
+    ];
+
+    const found = candidates.find(value => typeof value === 'string' && value.trim().length > 0);
+    return typeof found === 'string' ? found : '';
+  }
+
+  private async insertarMovimientoConNotaCompat(payload: {
+    tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
+    id_inventario: number;
+    id_usuario: number;
+    cantidad: number;
+    stock_anterior: number;
+    stock_nuevo: number;
+    nota: string;
+  }): Promise<void> {
+    const basePayload = {
+      tipo: payload.tipo,
+      id_inventario: payload.id_inventario,
+      id_usuario: payload.id_usuario,
+      cantidad: payload.cantidad,
+      stock_anterior: payload.stock_anterior,
+      stock_nuevo: payload.stock_nuevo,
+    };
+
+    const noteColumns = ['nota', 'observacion', 'comentario', 'motivo', 'descripcion', 'detalle'];
+
+    for (const noteColumn of noteColumns) {
+      const payloadWithNote = { ...basePayload, [noteColumn]: payload.nota } as Record<string, unknown>;
+      const { error } = await supabase.from('movimiento_inventario').insert(payloadWithNote);
+
+      if (!error) return;
+
+      if (!this.isMissingColumnError(error, noteColumn)) {
+        throw new AppError('Error al registrar movimiento de ajuste', 500);
+      }
+    }
+
+    // Fallback 2: registrar movimiento sin nota para no bloquear operación.
+    // La nota se deja en log estructurado si la tabla no soporta ese campo.
+    const { error: fallbackError } = await supabase
+      .from('movimiento_inventario')
+      .insert(basePayload);
+
+    if (fallbackError) {
+      throw new AppError('Error al registrar movimiento de ajuste', 500);
+    }
+
+    console.warn('[inventario][ajuste] movimiento sin columna de nota en BD', {
+      id_inventario: payload.id_inventario,
+      id_usuario: payload.id_usuario,
+      tipo: payload.tipo,
+      nota: payload.nota,
+    });
+  }
 
   async listarStockActualProductos(id_sucursal?: number): Promise<InventarioStockActualItem[]> {
     if (!id_sucursal) throw new AppError('No se pudo determinar la sucursal del usuario', 400);
@@ -184,6 +260,162 @@ export class InventarioService {
     return result.sort((a, b) => a.nombre_ingrediente.localeCompare(b.nombre_ingrediente));
   }
 
+  async listarMovimientos(
+    dto: ListarMovimientosInventarioDto,
+    actor: { rol: string; id_sucursal?: number }
+  ): Promise<InventarioMovimientoItem[]> {
+    const role = this.normalizeRole(actor.rol);
+
+    if (role !== 'ADMIN') {
+      if (!actor.id_sucursal || actor.id_sucursal !== dto.id_sucursal) {
+        throw new AppError('Solo puedes consultar movimientos de tu sucursal', 403);
+      }
+    }
+
+    const { data: bodegas, error: bodegasError } = await supabase
+      .from('bodega')
+      .select('id_bodega, nombre')
+      .eq('id_sucursal', dto.id_sucursal)
+      .eq('activo', true);
+
+    if (bodegasError) throw new AppError('Error al consultar bodegas de la sucursal', 500);
+
+    const bodegaIds = (bodegas ?? []).map((b: any) => Number(b.id_bodega));
+    if (bodegaIds.length === 0) return [];
+
+    const bodegaMap = new Map<number, string>();
+    for (const b of (bodegas ?? []) as any[]) {
+      bodegaMap.set(Number(b.id_bodega), b.nombre ?? '');
+    }
+
+    const { data: inventarioRows, error: inventarioError } = await supabase
+      .from('inventario')
+      .select('id_inventario, id_ingrediente, id_bodega')
+      .in('id_bodega', bodegaIds);
+
+    if (inventarioError) throw new AppError('Error al consultar inventario de la sucursal', 500);
+
+    const inventarioMap = new Map<number, { id_ingrediente: number | null; id_bodega: number }>();
+    for (const row of (inventarioRows ?? []) as any[]) {
+      inventarioMap.set(Number(row.id_inventario), {
+        id_ingrediente: row.id_ingrediente === null ? null : Number(row.id_ingrediente),
+        id_bodega: Number(row.id_bodega),
+      });
+    }
+
+    const inventarioIds = Array.from(inventarioMap.keys());
+    if (inventarioIds.length === 0) return [];
+
+    let movimientosQuery = supabase
+      .from('movimiento_inventario')
+      .select('*')
+      .in('id_inventario', inventarioIds)
+      .limit(dto.limit ?? 200);
+
+    if (dto.id_usuario) movimientosQuery = movimientosQuery.eq('id_usuario', dto.id_usuario);
+
+    const { data: movimientosData, error: movimientosError } = await movimientosQuery;
+    if (movimientosError) throw new AppError('Error al consultar movimientos de inventario', 500);
+
+    const rows = (movimientosData ?? []) as any[];
+    if (rows.length === 0) return [];
+
+    const ingredienteIds = [...new Set(
+      rows
+        .map(row => inventarioMap.get(Number(row.id_inventario))?.id_ingrediente)
+        .filter((id): id is number => typeof id === 'number')
+    )];
+
+    const usuarioIds = [...new Set(
+      rows
+        .map(row => row.id_usuario)
+        .filter((id): id is number => typeof id === 'number')
+    )];
+
+    const ingMap = new Map<number, string>();
+    if (ingredienteIds.length > 0) {
+      const { data: ingredientesData, error: ingredientesError } = await supabase
+        .from('ingrediente')
+        .select('id_ingrediente, nombre')
+        .in('id_ingrediente', ingredienteIds);
+
+      if (ingredientesError) throw new AppError('Error al consultar ingredientes de movimientos', 500);
+
+      for (const ing of (ingredientesData ?? []) as any[]) {
+        ingMap.set(Number(ing.id_ingrediente), ing.nombre ?? '');
+      }
+    }
+
+    const userMap = new Map<number, string>();
+    if (usuarioIds.length > 0) {
+      const { data: usuariosData, error: usuariosError } = await supabase
+        .from('usuario')
+        .select('id_usuario, nombre')
+        .in('id_usuario', usuarioIds);
+
+      if (usuariosError) throw new AppError('Error al consultar usuarios de movimientos', 500);
+
+      for (const user of (usuariosData ?? []) as any[]) {
+        userMap.set(Number(user.id_usuario), user.nombre ?? '');
+      }
+    }
+
+    const desdeDate = dto.desde ? new Date(`${dto.desde}T00:00:00`) : null;
+    const hastaDate = dto.hasta ? new Date(`${dto.hasta}T23:59:59`) : null;
+
+    const movimientos = rows
+      .map(row => {
+        const idInventario = Number(row.id_inventario);
+        const inv = inventarioMap.get(idInventario);
+        if (!inv) return null;
+
+        const idIngrediente = inv.id_ingrediente;
+        const idBodega = inv.id_bodega;
+        const fechaRaw = row.created_at ?? row.creado_en ?? row.fecha ?? null;
+        const parsedFecha = fechaRaw ? new Date(String(fechaRaw)) : null;
+        const tipoNormalizado = row.tipo === 'AJUSTE_NEGATIVO' ? 'AJUSTE_NEGATIVO' : 'AJUSTE_POSITIVO';
+
+        return {
+          id_movimiento: Number(row.id_movimiento_inventario ?? row.id_movimiento ?? row.id ?? 0),
+          fecha: fechaRaw ? String(fechaRaw) : null,
+          tipo: tipoNormalizado,
+          id_inventario: idInventario,
+          id_ingrediente: idIngrediente,
+          nombre_ingrediente: idIngrediente ? (ingMap.get(idIngrediente) ?? 'Ingrediente') : 'Ingrediente',
+          id_bodega: idBodega,
+          nombre_bodega: bodegaMap.get(idBodega) ?? 'Bodega',
+          id_usuario: row.id_usuario === null ? null : Number(row.id_usuario),
+          nombre_usuario: row.id_usuario ? (userMap.get(Number(row.id_usuario)) ?? 'Usuario') : 'Sistema',
+          cantidad: Number(row.cantidad ?? 0),
+          stock_anterior: Number(row.stock_anterior ?? 0),
+          stock_nuevo: Number(row.stock_nuevo ?? 0),
+          nota: this.extractNotaFromRow(row),
+          _parsed_fecha: parsedFecha,
+        } as InventarioMovimientoItem;
+      })
+      .filter((row): row is InventarioMovimientoItem => row !== null)
+      .filter(row => {
+        const fecha = (row as any)._parsed_fecha as Date | null;
+        if (desdeDate && fecha && fecha < desdeDate) return false;
+        if (hastaDate && fecha && fecha > hastaDate) return false;
+        if ((desdeDate || hastaDate) && !fecha) return false;
+        return true;
+      })
+      .filter(row => !dto.id_ingrediente || row.id_ingrediente === dto.id_ingrediente)
+      .filter(row => !dto.id_bodega || row.id_bodega === dto.id_bodega)
+      .sort((a, b) => {
+        const aTime = (a as any)._parsed_fecha instanceof Date ? (a as any)._parsed_fecha.getTime() : 0;
+        const bTime = (b as any)._parsed_fecha instanceof Date ? (b as any)._parsed_fecha.getTime() : 0;
+        return bTime - aTime;
+      })
+      .map(row => {
+        const { _parsed_fecha, ...safeRow } = row as InventarioMovimientoItem & { _parsed_fecha?: Date | null };
+        return safeRow;
+      });
+
+    return movimientos;
+  }
+
   async registrarStockIngrediente(dto: RegistrarStockIngredienteDto, id_usuario: number): Promise<void> {
     const { data: ingrediente } = await supabase
       .from('ingrediente')
@@ -240,43 +472,73 @@ export class InventarioService {
     });
   }
 
-  async ajustarStock(id_inventario: number, dto: AjusteStockDto, id_usuario: number): Promise<void> {
+  async ajustarStock(
+    id_inventario: number,
+    dto: AjusteStockDto,
+    actor: { id_usuario: number; rol: string; id_sucursal?: number }
+  ): Promise<void> {
     const { data: inv } = await supabase
       .from('inventario')
-      .select('id_inventario, stock_actual')
+      .select('id_inventario, id_bodega, stock_actual, stock_minimo, bodega(id_sucursal, nombre)')
       .eq('id_inventario', id_inventario)
       .maybeSingle();
 
     if (!inv) throw new AppError('Registro de inventario no encontrado', 404);
 
+    const role = this.normalizeRole(actor.rol);
+    const bodegaInfoRaw = (inv as any).bodega;
+    const bodegaInfo = Array.isArray(bodegaInfoRaw) ? bodegaInfoRaw[0] : bodegaInfoRaw;
+    const idSucursalInventario = Number(bodegaInfo?.id_sucursal);
+    if (role !== 'ADMIN') {
+      if (!actor.id_sucursal || !Number.isFinite(idSucursalInventario)) {
+        throw new AppError('No se pudo validar la sucursal del ajuste', 400);
+      }
+      if (Number(actor.id_sucursal) !== idSucursalInventario) {
+        throw new AppError('Solo puedes ajustar stock de tu sucursal', 403);
+      }
+    }
+
     const stockAnterior = Number(inv.stock_actual);
-    const stockNuevo = dto.tipo === 'AJUSTE_POSITIVO'
-      ? stockAnterior + dto.cantidad
-      : stockAnterior - dto.cantidad;
+    const stockNuevo = Number(dto.nueva_cantidad);
+    const diferencia = stockNuevo - stockAnterior;
+
+    if (diferencia === 0) {
+      throw new AppError('La nueva cantidad debe ser diferente al stock actual', 400);
+    }
 
     if (stockNuevo < 0) throw new AppError('El ajuste resultaría en stock negativo', 400);
 
-    const updateData: Record<string, any> = { stock_actual: stockNuevo };
-    if (dto.tipo === 'AJUSTE_POSITIVO') {
-      if (dto.lote !== undefined) updateData.lote = dto.lote || null;
-      if (dto.fecha_vencimiento !== undefined) updateData.fecha_vencimiento = dto.fecha_vencimiento || null;
-    }
-
     const { error: updateError } = await supabase
       .from('inventario')
-      .update(updateData)
+      .update({ stock_actual: stockNuevo })
       .eq('id_inventario', id_inventario);
 
     if (updateError) throw new AppError('Error al ajustar stock', 500);
 
-    await supabase.from('movimiento_inventario').insert({
-      tipo: dto.tipo,
+    const tipoMovimiento = diferencia > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+    const cantidadMovimiento = Math.abs(diferencia);
+
+    await this.insertarMovimientoConNotaCompat({
+      tipo: tipoMovimiento,
       id_inventario,
-      id_usuario,
-      cantidad: dto.cantidad,
+      id_usuario: actor.id_usuario,
+      cantidad: cantidadMovimiento,
       stock_anterior: stockAnterior,
       stock_nuevo: stockNuevo,
+      nota: dto.nota,
     });
+
+    const enAlerta = stockNuevo < Number(inv.stock_minimo ?? 0);
+    if (enAlerta) {
+      console.warn('[inventario][ajuste] Stock en alerta tras ajuste manual', {
+        id_inventario,
+        id_bodega: inv.id_bodega,
+        id_usuario: actor.id_usuario,
+        stock_anterior: stockAnterior,
+        stock_nuevo: stockNuevo,
+        stock_minimo: Number(inv.stock_minimo ?? 0),
+      });
+    }
   }
 
   async actualizarLimites(id_inventario: number, dto: ActualizarLimitesDto): Promise<void> {
