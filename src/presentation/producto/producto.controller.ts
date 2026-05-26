@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ProductoService } from '../../services/producto.service';
-import { validateCrearProducto, validateActualizarProducto, validateCrearCategoria } from '../../domain/validators/producto.validator';
+import { validateCrearProducto, validateActualizarProducto } from '../../domain/validators/producto.validator';
 import { AppError } from '../../helpers/app-error';
 
 export class ProductoController {
@@ -258,36 +258,4 @@ export class ProductoController {
     }
   }
 
-  async listarCategorias(req: Request, res: Response): Promise<void> {
-    try {
-      const id_sucursal = req.usuario?.id_sucursal;
-      const categorias = await this.productoService.listarCategorias(id_sucursal);
-      res.json(categorias);
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
-
-  async crearCategoria(req: Request, res: Response): Promise<void> {
-    const { data, error } = validateCrearCategoria(req.body);
-    if (error) {
-      res.status(400).json({ mensaje: error });
-      return;
-    }
-
-    try {
-      const categoria = await this.productoService.crearCategoria(data!);
-      res.status(201).json(categoria);
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
 }
