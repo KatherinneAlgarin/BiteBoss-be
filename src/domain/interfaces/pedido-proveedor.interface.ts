@@ -41,3 +41,16 @@ export interface EditarPedidoProveedorDto {
   estado?: 'PENDIENTE' | 'RECIBIDO' | 'CANCELADO';
   detalles?: CrearPedidoDetalleDto[];
 }
+
+export interface RecibirDetalleDto {
+  id_pedido_proveedor_detalle: number;
+  id_ingrediente: number;
+  cantidad: number;
+  lote?: string;
+  fecha_vencimiento?: string;
+}
+
+export interface RecibirPedidoProveedorDto {
+  id_bodega: number;
+  detalles: RecibirDetalleDto[];
+}

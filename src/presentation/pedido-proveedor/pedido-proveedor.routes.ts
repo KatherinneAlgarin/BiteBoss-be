@@ -15,6 +15,7 @@ export class PedidoProveedorRoutes {
     router.get('/:id', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.obtener(req, res));
     router.post('/', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.crear(req, res));
     router.patch('/:id', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.actualizar(req, res));
+    router.post('/:id/recibir', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.recibir(req, res));
 
     return router;
   }

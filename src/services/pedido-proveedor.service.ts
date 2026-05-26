@@ -6,6 +6,7 @@ import type {
   PedidoProveedorDetalleItem,
   CrearPedidoProveedorDto,
   EditarPedidoProveedorDto,
+  RecibirPedidoProveedorDto,
 } from '../domain/interfaces/pedido-proveedor.interface';
 
 export class PedidoProveedorService {
@@ -318,5 +319,138 @@ export class PedidoProveedorService {
     }
 
     return posterior;
+  }
+
+  async recibirPedido(
+    id_pedido_proveedor: number,
+    dto: RecibirPedidoProveedorDto,
+    id_usuario: number,
+    usuario_context: { id_sucursal: number | null; rol: string },
+  ): Promise<PedidoProveedorItem> {
+    const auditoriaService = new AuditoriaService();
+
+    const pedido = await this.obtenerConDetalle(id_pedido_proveedor);
+
+    if (usuario_context.rol !== 'admin' && pedido.id_sucursal !== usuario_context.id_sucursal) {
+      throw new AppError('No tienes permiso para modificar esta orden', 403);
+    }
+
+    if (pedido.estado !== 'PENDIENTE') {
+      throw new AppError('Solo se pueden recibir órdenes en estado PENDIENTE', 400);
+    }
+
+    const { data: bodega } = await supabase
+      .from('bodega')
+      .select('id_bodega')
+      .eq('id_bodega', dto.id_bodega)
+      .eq('id_sucursal', pedido.id_sucursal)
+      .eq('activo', true)
+      .single();
+    if (!bodega) throw new AppError('La bodega no pertenece a esta sucursal o está inactiva', 400);
+
+    // Actualizar cantidad recibida en cada detalle
+    for (const det of dto.detalles) {
+      const { error } = await supabase
+        .from('pedido_proveedor_detalle')
+        .update({ cantidad: det.cantidad })
+        .eq('id_pedido_proveedor_detalle', det.id_pedido_proveedor_detalle);
+      if (error) throw new AppError('Error al actualizar cantidad del detalle', 500);
+    }
+
+    // Incrementar stock y registrar movimiento por ingrediente
+    for (const det of dto.detalles) {
+      // Buscar registro existente del mismo ingrediente + bodega + lote
+      // Si viene con lote, buscar coincidencia exacta; sin lote, buscar registro sin lote
+      let invQuery = supabase
+        .from('inventario')
+        .select('id_inventario, stock_actual')
+        .eq('id_ingrediente', det.id_ingrediente)
+        .eq('id_bodega', dto.id_bodega);
+
+      if (det.lote) {
+        invQuery = invQuery.eq('lote', det.lote);
+      } else {
+        invQuery = invQuery.is('lote', null);
+      }
+
+      const { data: invExistente } = await invQuery.maybeSingle();
+
+      let id_inventario: number;
+      let stock_anterior: number;
+      let stock_nuevo: number;
+
+      if (invExistente) {
+        stock_anterior = Number(invExistente.stock_actual);
+        stock_nuevo = stock_anterior + det.cantidad;
+        const updateFields: Record<string, unknown> = {
+          stock_actual: stock_nuevo,
+          ultima_modificacion: new Date().toISOString().split('T')[0],
+        };
+        if (det.fecha_vencimiento) updateFields.fecha_vencimiento = det.fecha_vencimiento;
+        const { error } = await supabase
+          .from('inventario')
+          .update(updateFields)
+          .eq('id_inventario', invExistente.id_inventario);
+        if (error) throw new AppError('Error al actualizar el stock', 500);
+        id_inventario = invExistente.id_inventario;
+      } else {
+        const { data: nuevoInv, error } = await supabase
+          .from('inventario')
+          .insert({
+            id_ingrediente: det.id_ingrediente,
+            id_bodega: dto.id_bodega,
+            id_usuario,
+            stock_actual: det.cantidad,
+            stock_minimo: 0,
+            stock_maximo: 0,
+            activo: true,
+            lote: det.lote ?? null,
+            fecha_vencimiento: det.fecha_vencimiento ?? null,
+            ultima_modificacion: new Date().toISOString().split('T')[0],
+          })
+          .select('id_inventario')
+          .single();
+        if (error || !nuevoInv) throw new AppError('Error al crear registro de inventario', 500);
+        stock_anterior = 0;
+        stock_nuevo = det.cantidad;
+        id_inventario = nuevoInv.id_inventario;
+      }
+
+      const { error: errMov } = await supabase
+        .from('movimiento_inventario')
+        .insert({
+          tipo: 'ENTRADA_COMPRA',
+          id_inventario,
+          id_usuario,
+          cantidad: det.cantidad,
+          stock_anterior,
+          stock_nuevo,
+          nota: `Recepción orden #${id_pedido_proveedor}`,
+          id_pedido_proveedor,
+        });
+      if (errMov) throw new AppError('Error al registrar movimiento de inventario', 500);
+    }
+
+    // Cambiar estado AL FINAL para garantizar consistencia
+    const { error: errEstado } = await supabase
+      .from('pedido_proveedor')
+      .update({
+        estado: 'RECIBIDO',
+        fecha_entrega: new Date().toISOString(),
+      })
+      .eq('id_pedido_proveedor', id_pedido_proveedor);
+    if (errEstado) throw new AppError('Error al actualizar el estado del pedido', 500);
+
+    await auditoriaService.registrar({
+      entidad: 'pedido_proveedor',
+      accion: 'UPDATE',
+      id_entidad: id_pedido_proveedor,
+      id_usuario,
+      campos_cambiados: ['estado', 'fecha_entrega'],
+      valor_anterior: { estado: 'PENDIENTE' },
+      valor_nuevo: { estado: 'RECIBIDO', id_bodega: dto.id_bodega },
+    });
+
+    return this.obtenerConDetalle(id_pedido_proveedor);
   }
 }

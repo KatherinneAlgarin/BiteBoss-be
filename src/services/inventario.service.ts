@@ -373,7 +373,11 @@ export class InventarioService {
         const idBodega = inv.id_bodega;
         const fechaRaw = row.created_at ?? row.creado_en ?? row.fecha ?? null;
         const parsedFecha = fechaRaw ? new Date(String(fechaRaw)) : null;
-        const tipoNormalizado = row.tipo === 'AJUSTE_NEGATIVO' ? 'AJUSTE_NEGATIVO' : 'AJUSTE_POSITIVO';
+        const tipoNormalizado = row.tipo === 'AJUSTE_NEGATIVO'
+          ? 'AJUSTE_NEGATIVO'
+          : row.tipo === 'ENTRADA_COMPRA'
+            ? 'ENTRADA_COMPRA'
+            : 'AJUSTE_POSITIVO';
 
         return {
           id_movimiento: Number(row.id_movimiento_inventario ?? row.id_movimiento ?? row.id ?? 0),
