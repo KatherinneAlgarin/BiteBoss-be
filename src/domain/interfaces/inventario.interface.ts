@@ -27,7 +27,7 @@ export interface InventarioIngredienteItem {
 export interface InventarioMovimientoItem {
   id_movimiento: number;
   fecha: string | null;
-  tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO';
+  tipo: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO' | 'ENTRADA_COMPRA';
   id_inventario: number;
   id_ingrediente: number | null;
   nombre_ingrediente: string;

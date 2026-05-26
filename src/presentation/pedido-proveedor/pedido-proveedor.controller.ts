@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AppError } from '../../helpers/app-error';
 import { PedidoProveedorService } from '../../services/pedido-proveedor.service';
-import { validateCrearPedidoProveedor, validateEditarPedidoProveedor } from '../../domain/validators/pedido-proveedor.validator';
+import { validateCrearPedidoProveedor, validateEditarPedidoProveedor, validateRecibirPedido } from '../../domain/validators/pedido-proveedor.validator';
 
 export class PedidoProveedorController {
   constructor(private readonly service = new PedidoProveedorService()) {}
@@ -72,6 +72,29 @@ export class PedidoProveedorController {
 
     try {
       const pedido = await this.service.actualizar(id, data!, id_usuario, {
+        id_sucursal: usuario?.id_sucursal ?? null,
+        rol: usuario?.rol ?? '',
+      });
+      res.json(pedido);
+    } catch (err) {
+      if (err instanceof AppError) { res.status(err.statusCode).json({ mensaje: err.message }); return; }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
+  async recibir(req: Request, res: Response): Promise<void> {
+    const id = Number(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ mensaje: 'ID inválido' }); return; }
+
+    const { data, error } = validateRecibirPedido(req.body);
+    if (error) { res.status(400).json({ mensaje: error }); return; }
+
+    const usuario = (req as any).usuario;
+    const id_usuario = usuario?.id_usuario;
+    if (!id_usuario) { res.status(401).json({ mensaje: 'Usuario no autenticado' }); return; }
+
+    try {
+      const pedido = await this.service.recibirPedido(id, data!, id_usuario, {
         id_sucursal: usuario?.id_sucursal ?? null,
         rol: usuario?.rol ?? '',
       });
