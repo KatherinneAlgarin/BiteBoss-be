@@ -4,7 +4,6 @@ import { AuditoriaService } from './auditoria.service';
 import type {
   ProductoDto,
   ProductoListItem,
-  CategoriaDto,
   ProductoSucursalItem,
   ProductoIngredienteDto,
   ProductoComboDto,
@@ -566,24 +565,4 @@ export class ProductoService {
     );
   }
 
-  async listarCategorias(id_sucursal?: number): Promise<CategoriaDto[]> {
-    const { data, error } = await supabase
-      .from('categoria')
-      .select('*')
-      .eq('activo', true);
-
-    if (error) throw new AppError('Error al listar categorías', 500);
-    return data ?? [];
-  }
-
-  async crearCategoria(dto: CategoriaDto): Promise<CategoriaDto> {
-    const { data, error } = await supabase
-      .from('categoria')
-      .insert(dto)
-      .select()
-      .single();
-
-    if (error) throw new AppError('Error al crear categoría', 500);
-    return data;
-  }
 }

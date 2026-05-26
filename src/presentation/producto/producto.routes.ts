@@ -21,9 +21,6 @@ export class ProductoRoutes {
     router.patch('/:id', authorizeRoles('admin', 'gerente'), (req, res) => controller.actualizarProducto(req, res));
     router.delete('/:id', authorizeRoles('admin', 'gerente'), (req, res) => controller.eliminarProducto(req, res));
 
-    router.get('/categorias/listar', (req, res) => controller.listarCategorias(req, res));
-    router.post('/categorias', authorizeRoles('admin', 'gerente'), (req, res) => controller.crearCategoria(req, res));
-
     return router;
   }
 }

@@ -15,6 +15,7 @@ import { InventarioRoutes } from './inventario/inventario.routes';
 import { BodegaRoutes } from './bodega/bodega.routes';
 import { IngredienteRoutes } from './ingrediente/ingrediente.routes';
 import { PedidoProveedorRoutes } from './pedido-proveedor/pedido-proveedor.routes';
+import { CategoriaRoutes } from './categoria/categoria.routes';
 
 export class AppRoutes {
 
@@ -37,6 +38,7 @@ export class AppRoutes {
     router.use('/api/bodegas', BodegaRoutes.routes);
     router.use('/api/ingredientes', IngredienteRoutes.routes);
     router.use('/api/pedidos-proveedor', PedidoProveedorRoutes.routes);
+    router.use('/api/categorias', CategoriaRoutes.routes);
 
 
     router.get('/api', (_req, res) => {
