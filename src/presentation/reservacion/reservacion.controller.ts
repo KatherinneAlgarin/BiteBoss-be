@@ -11,16 +11,25 @@ export class ReservacionController {
 
   async listar(req: Request, res: Response): Promise<void> {
     const id_sucursal = req.usuario!.id_sucursal;
-    const { estado: estadoParam, fecha: fechaParam, zona: zonaParam } = req.query;
+    const { estado: estadoParam, fecha: fechaParam, fecha_inicio: fechaInicioParam, fecha_fin: fechaFinParam, zona: zonaParam } = req.query;
 
     let estado: EstadoReservacion | undefined;
     if (typeof estadoParam === 'string' && ESTADOS_VALIDOS.includes(estadoParam as EstadoReservacion)) {
       estado = estadoParam as EstadoReservacion;
     }
 
-    let fecha: string | undefined;
-    if (typeof fechaParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(fechaParam)) {
-      fecha = fechaParam;
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    let fechaInicio: string | undefined;
+    let fechaFin: string | undefined;
+
+    if (typeof fechaInicioParam === 'string' && DATE_RE.test(fechaInicioParam)) {
+      fechaInicio = fechaInicioParam;
+    } else if (typeof fechaParam === 'string' && DATE_RE.test(fechaParam)) {
+      fechaInicio = fechaParam;
+    }
+
+    if (typeof fechaFinParam === 'string' && DATE_RE.test(fechaFinParam)) {
+      fechaFin = fechaFinParam;
     }
 
     let id_zona: number | undefined;
@@ -30,7 +39,7 @@ export class ReservacionController {
     }
 
     try {
-      const reservaciones = await this.reservacionService.listar(id_sucursal, estado, fecha, id_zona);
+      const reservaciones = await this.reservacionService.listar(id_sucursal, estado, fechaInicio, fechaFin, id_zona);
       res.json(reservaciones);
     } catch (err) {
       if (err instanceof AppError) {

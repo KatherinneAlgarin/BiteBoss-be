@@ -47,7 +47,7 @@ export class ReservacionService {
     }
   }
 
-  async listar(id_sucursal: number, estado?: EstadoReservacion, fecha?: string, id_zona?: number): Promise<ReservacionItem[]> {
+  async listar(id_sucursal: number, estado?: EstadoReservacion, fechaInicio?: string, fechaFin?: string, id_zona?: number): Promise<ReservacionItem[]> {
     let query = supabase
       .from('reservacion')
       .select(`
@@ -74,10 +74,11 @@ export class ReservacionService {
       query = query.eq('estado', estado);
     }
 
-    if (fecha !== undefined) {
+    if (fechaInicio !== undefined) {
+      const fin = fechaFin ?? fechaInicio;
       query = query
-        .gte('fecha_llegada', `${fecha}T00:00:00`)
-        .lt('fecha_llegada', `${fecha}T23:59:59`);
+        .gte('fecha_llegada', `${fechaInicio}T00:00:00`)
+        .lte('fecha_llegada', `${fin}T23:59:59`);
     }
 
     if (id_zona !== undefined) {
