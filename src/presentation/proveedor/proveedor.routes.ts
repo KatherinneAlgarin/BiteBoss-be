@@ -13,8 +13,8 @@ export class ProveedorRoutes {
 
     router.get('/', (req, res) => controller.listarProveedores(req, res));
     router.get('/:id', (req, res) => controller.obtenerProveedor(req, res));
-    router.post('/', authorizeRoles('admin', 'encargado'), (req, res) => controller.crearProveedor(req, res));
-    router.patch('/:id', authorizeRoles('admin', 'encargado'), (req, res) => controller.actualizarProveedor(req, res));
+    router.post('/', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.crearProveedor(req, res));
+    router.patch('/:id', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.actualizarProveedor(req, res));
     router.delete('/:id', authorizeRoles('admin'), (req, res) => controller.eliminarProveedor(req, res));
 
     return router;
