@@ -8,7 +8,6 @@ export class ProveedorService {
     const { data, error } = await supabase
       .from('proveedor')
       .select('*')
-      .eq('activo', true)
       .order('nombre', { ascending: true });
 
     if (error) {
