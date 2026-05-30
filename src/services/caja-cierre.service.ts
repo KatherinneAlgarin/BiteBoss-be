@@ -92,6 +92,10 @@ export class CajaCierreService {
 
     const existente = await this.obtenerSesionActiva(id_usuario, id_sucursal);
     if (existente) {
+      if (existente.estado === 'PENDIENTE') {
+        throw new AppError('Hay una revisión pendiente de tu cierre de caja. No puedes abrir la caja hasta que sea autorizada o denegada.', 409);
+      }
+
       return this.calcularResumenSesion(existente);
     }
 
@@ -276,6 +280,78 @@ export class CajaCierreService {
 
     if (error || !data) {
       throw new AppError('No se pudo resolver el cierre de caja', 500);
+    }
+
+    const resumen = (data as any).resumen ?? {};
+    return {
+      id_caja_sesion: (data as any).id_caja_sesion,
+      estado: (data as any).estado,
+      fecha_apertura: (data as any).fecha_apertura,
+      fecha_solicitud_cierre: (data as any).fecha_solicitud_cierre,
+      fecha_resolucion: (data as any).fecha_resolucion,
+      id_sucursal: (data as any).id_sucursal,
+      sucursal_nombre: (data as any).sucursal?.nombre,
+      id_usuario_cajero: (data as any).id_usuario_cajero,
+      cajero_nombre: (data as any).cajero?.nombre,
+      id_usuario_revisor: (data as any).id_usuario_revisor,
+      revisor_nombre: (data as any).revisor?.nombre ?? null,
+      total_transacciones: Number(resumen.total_transacciones ?? 0),
+      total_monto: Number(resumen.total_monto ?? 0),
+      total_propina: Number(resumen.total_propina ?? 0),
+      monto_declarado: (data as any).monto_declarado,
+      observacion_solicitud: (data as any).observacion_solicitud,
+      motivo_rechazo: (data as any).motivo_rechazo,
+      resumen: (data as any).resumen ?? null,
+    };
+  }
+
+  async reautorizarCierre(
+    id_caja_sesion: number,
+    id_usuario_revisor: number,
+  ): Promise<CajaCierreListadoItem> {
+    const { data: actual, error: actualError } = await supabase
+      .from('caja_sesion')
+      .select('*')
+      .eq('id_caja_sesion', id_caja_sesion)
+      .single();
+
+    if (actualError || !actual) {
+      throw new AppError('Corte de caja no encontrado', 404);
+    }
+
+    if (actual.estado !== 'RECHAZADA') {
+      throw new AppError('Solo se pueden reautorizar cortes rechazados', 409);
+    }
+
+    const { data, error } = await supabase
+      .from('caja_sesion')
+      .update({
+        estado: 'AUTORIZADA',
+        id_usuario_revisor,
+        fecha_resolucion: new Date(),
+      })
+      .eq('id_caja_sesion', id_caja_sesion)
+      .select(`
+        id_caja_sesion,
+        estado,
+        fecha_apertura,
+        fecha_solicitud_cierre,
+        fecha_resolucion,
+        id_sucursal,
+        id_usuario_cajero,
+        id_usuario_revisor,
+        monto_declarado,
+        observacion_solicitud,
+        motivo_rechazo,
+        resumen,
+        sucursal:sucursal!id_sucursal(nombre),
+        cajero:usuario!id_usuario_cajero(nombre),
+        revisor:usuario!id_usuario_revisor(nombre)
+      `)
+      .single();
+
+    if (error || !data) {
+      throw new AppError('No se pudo reautorizar el cierre de caja', 500);
     }
 
     const resumen = (data as any).resumen ?? {};

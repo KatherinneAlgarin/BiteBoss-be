@@ -19,6 +19,7 @@ export class CajaCierreRoutes {
     router.get('/', authorizeRoles('admin', 'gerente'), (req, res) => controller.listarCierres(req, res));
     router.patch('/:id/autorizar', authorizeRoles('admin', 'gerente'), (req, res) => controller.autorizarCierre(req, res));
     router.patch('/:id/rechazar', authorizeRoles('admin', 'gerente'), (req, res) => controller.rechazarCierre(req, res));
+    router.patch('/:id/reautorizar', authorizeRoles('admin', 'gerente'), (req, res) => controller.reautorizarCierre(req, res));
 
     return router;
   }

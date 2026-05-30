@@ -196,4 +196,29 @@ export class CajaCierreController {
       res.status(500).json({ mensaje: 'Error interno del servidor' });
     }
   }
+
+  async reautorizarCierre(req: Request, res: Response): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isFinite(id) || id <= 0) {
+        res.status(400).json({ mensaje: 'ID de cierre inválido' });
+        return;
+      }
+
+      const id_usuario_revisor = req.usuario?.id_usuario;
+      if (!id_usuario_revisor) {
+        res.status(401).json({ mensaje: 'Usuario no autenticado' });
+        return;
+      }
+
+      const cierre = await this.cajaCierreService.reautorizarCierre(id, id_usuario_revisor);
+      res.json(cierre);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
 }
