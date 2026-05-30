@@ -248,4 +248,43 @@ describe('ProductoController', () => {
     });
   });
 
+  describe('listarCategorias', () => {
+    it('debería retornar las categorías de la sucursal', async () => {
+      mockProductoService.listarCategorias.mockResolvedValueOnce([categoriaBase]);
+      const req = { usuario: usuarioMock } as any;
+      await controller.listarCategorias(req, res);
+      expect(res.json).toHaveBeenCalledWith([categoriaBase]);
+    });
+
+    it('debería responder con el statusCode del AppError', async () => {
+      mockProductoService.listarCategorias.mockRejectedValueOnce(new AppError('Error', 500));
+      const req = { usuario: usuarioMock } as any;
+      await controller.listarCategorias(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  describe('crearCategoria', () => {
+    it('debería retornar 400 si la validación falla', async () => {
+      productoValidator.validateCrearCategoria.mockReturnValue({ data: null, error: 'Nombre requerido' });
+      const req = { body: {} } as any;
+      await controller.crearCategoria(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('debería crear la categoría y responder 201', async () => {
+      mockProductoService.crearCategoria.mockResolvedValueOnce(categoriaBase);
+      const req = { body: { nombre: 'Comida rápida' } } as any;
+      await controller.crearCategoria(req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(categoriaBase);
+    });
+
+    it('debería responder con el statusCode del AppError', async () => {
+      mockProductoService.crearCategoria.mockRejectedValueOnce(new AppError('Nombre duplicado', 409));
+      const req = { body: {} } as any;
+      await controller.crearCategoria(req, res);
+      expect(res.status).toHaveBeenCalledWith(409);
+    });
+  });
 });
