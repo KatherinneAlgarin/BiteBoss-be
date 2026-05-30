@@ -56,6 +56,41 @@ export class OrdenService {
     }
   }
 
+  private async validarMesaSinCuentaAbierta(id_mesa: number, id_pedido_excluir?: number): Promise<void> {
+    const { data, error } = await supabase
+      .from('pedido_mesa')
+      .select(`
+        id_pedido,
+        pedido!inner (
+          estado_financiero,
+          estado_operativo
+        )
+      `)
+      .eq('id_mesa', id_mesa)
+      .eq('activo', true);
+
+    if (error) {
+      throw new AppError('No se pudo validar si la mesa tiene cuentas pendientes', 500);
+    }
+
+    const tieneCuentaAbierta = (data ?? []).some((row: any) => {
+      if (id_pedido_excluir && Number(row.id_pedido) === Number(id_pedido_excluir)) {
+        return false;
+      }
+
+      const pedido = Array.isArray(row.pedido) ? row.pedido[0] : row.pedido;
+      const estadoFinanciero = String(pedido?.estado_financiero ?? '').trim().toUpperCase();
+      const estadoOperativo = String(pedido?.estado_operativo ?? '').trim().toUpperCase();
+
+      if (estadoFinanciero !== 'SIN_PAGAR') return false;
+      return estadoOperativo !== 'CANCELADO' && estadoOperativo !== 'OCULTO';
+    });
+
+    if (tieneCuentaAbierta) {
+      throw new AppError('La mesa ya tiene una orden sin cobrar. Cierra esa cuenta antes de asignar una nueva orden.', 409);
+    }
+  }
+
   async crearOrden(
     dto: CrearOrdenDto,
     id_usuario: number,
@@ -89,6 +124,10 @@ export class OrdenService {
 
     if (tipoOrdenData.requiere_mesa && !dto.id_mesa) {
       throw new AppError('El tipo de orden seleccionado requiere una mesa', 400);
+    }
+
+    if (dto.id_mesa) {
+      await this.validarMesaSinCuentaAbierta(dto.id_mesa);
     }
 
     const { data: sucursalTipoData, error: sucursalTipoError } = await supabase
@@ -388,6 +427,10 @@ export class OrdenService {
 
     // Handle mesa change for dine-in
     if (dto.id_mesa !== undefined) {
+      if (dto.id_mesa) {
+        await this.validarMesaSinCuentaAbierta(dto.id_mesa, id_pedido);
+      }
+
       // Remove old pedido_mesa if exists
       await supabase.from('pedido_mesa').delete().eq('id_pedido', id_pedido);
       if (dto.id_mesa) {
