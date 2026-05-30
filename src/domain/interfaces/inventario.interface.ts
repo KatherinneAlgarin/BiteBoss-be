@@ -31,6 +31,7 @@ export interface InventarioMovimientoItem {
   id_inventario: number;
   id_ingrediente: number | null;
   nombre_ingrediente: string;
+  unidad_medida: string | null;
   id_bodega: number;
   nombre_bodega: string;
   id_usuario: number | null;
@@ -38,6 +39,8 @@ export interface InventarioMovimientoItem {
   cantidad: number;
   stock_anterior: number;
   stock_nuevo: number;
+  lote: string | null;
+  fecha_vencimiento: string | null;
   nota: string;
 }
 

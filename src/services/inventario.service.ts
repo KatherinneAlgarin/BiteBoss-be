@@ -292,16 +292,23 @@ export class InventarioService {
 
     const { data: inventarioRows, error: inventarioError } = await supabase
       .from('inventario')
-      .select('id_inventario, id_ingrediente, id_bodega')
+      .select('id_inventario, id_ingrediente, id_bodega, lote, fecha_vencimiento')
       .in('id_bodega', bodegaIds);
 
     if (inventarioError) throw new AppError('Error al consultar inventario de la sucursal', 500);
 
-    const inventarioMap = new Map<number, { id_ingrediente: number | null; id_bodega: number }>();
+    const inventarioMap = new Map<number, {
+      id_ingrediente: number | null;
+      id_bodega: number;
+      lote: string | null;
+      fecha_vencimiento: string | null;
+    }>();
     for (const row of (inventarioRows ?? []) as any[]) {
       inventarioMap.set(Number(row.id_inventario), {
         id_ingrediente: row.id_ingrediente === null ? null : Number(row.id_ingrediente),
         id_bodega: Number(row.id_bodega),
+        lote: row.lote ?? null,
+        fecha_vencimiento: row.fecha_vencimiento ?? null,
       });
     }
 
@@ -334,17 +341,20 @@ export class InventarioService {
         .filter((id): id is number => typeof id === 'number')
     )];
 
-    const ingMap = new Map<number, string>();
+    const ingMap = new Map<number, { nombre: string; unidad_medida: string | null }>();
     if (ingredienteIds.length > 0) {
       const { data: ingredientesData, error: ingredientesError } = await supabase
         .from('ingrediente')
-        .select('id_ingrediente, nombre')
+        .select('id_ingrediente, nombre, unidad_medida')
         .in('id_ingrediente', ingredienteIds);
 
       if (ingredientesError) throw new AppError('Error al consultar ingredientes de movimientos', 500);
 
       for (const ing of (ingredientesData ?? []) as any[]) {
-        ingMap.set(Number(ing.id_ingrediente), ing.nombre ?? '');
+        ingMap.set(Number(ing.id_ingrediente), {
+          nombre: ing.nombre ?? '',
+          unidad_medida: ing.unidad_medida ?? null,
+        });
       }
     }
 
@@ -373,6 +383,7 @@ export class InventarioService {
 
         const idIngrediente = inv.id_ingrediente;
         const idBodega = inv.id_bodega;
+        const ingredienteInfo = idIngrediente ? ingMap.get(idIngrediente) : null;
         const fechaRaw = row.created_at ?? row.creado_en ?? row.fecha ?? null;
         const parsedFecha = fechaRaw ? new Date(String(fechaRaw)) : null;
         const tipoNormalizado = row.tipo === 'AJUSTE_NEGATIVO'
@@ -387,7 +398,8 @@ export class InventarioService {
           tipo: tipoNormalizado,
           id_inventario: idInventario,
           id_ingrediente: idIngrediente,
-          nombre_ingrediente: idIngrediente ? (ingMap.get(idIngrediente) ?? 'Ingrediente') : 'Ingrediente',
+          nombre_ingrediente: ingredienteInfo?.nombre ?? 'Ingrediente',
+          unidad_medida: ingredienteInfo?.unidad_medida ?? null,
           id_bodega: idBodega,
           nombre_bodega: bodegaMap.get(idBodega) ?? 'Bodega',
           id_usuario: row.id_usuario === null ? null : Number(row.id_usuario),
@@ -395,6 +407,8 @@ export class InventarioService {
           cantidad: Number(row.cantidad ?? 0),
           stock_anterior: Number(row.stock_anterior ?? 0),
           stock_nuevo: Number(row.stock_nuevo ?? 0),
+          lote: inv.lote,
+          fecha_vencimiento: inv.fecha_vencimiento,
           nota: this.extractNotaFromRow(row),
           _parsed_fecha: parsedFecha,
         } as InventarioMovimientoItem;
