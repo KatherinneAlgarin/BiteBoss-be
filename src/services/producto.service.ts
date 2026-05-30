@@ -9,6 +9,7 @@ import type {
   ProductoComboDto,
   ProductoDependenciasDesactivacionDto,
 } from '../domain/interfaces/producto.interface';
+import type { CrearCategoriaDto, CategoriaItem } from '../domain/interfaces/categoria.interface';
 
 export class ProductoService {
   private readonly auditoriaService = new AuditoriaService();
@@ -80,6 +81,45 @@ export class ProductoService {
       });
 
     if (error) throw error;
+  }
+
+  async listarCategorias(): Promise<CategoriaItem[]> {
+    const { data, error } = await supabase
+      .from('categoria')
+      .select('*')
+      .order('nombre', { ascending: true });
+
+    if (error) {
+      throw new AppError('Error al listar categorías', 500);
+    }
+
+    return (data ?? []).map((item: any) => ({
+      id_categoria: item.id_categoria,
+      nombre: item.nombre,
+      activo: item.activo,
+      creado_en: item.creado_en,
+      cantidad_sucursales: 0,
+    }));
+  }
+
+  async crearCategoria(dto: CrearCategoriaDto): Promise<CategoriaItem> {
+    const { data, error } = await supabase
+      .from('categoria')
+      .insert({ nombre: dto.nombre, activo: true })
+      .select()
+      .single();
+
+    if (error || !data) {
+      throw new AppError('Error al crear categoría', 500);
+    }
+
+    return {
+      id_categoria: data.id_categoria,
+      nombre: data.nombre,
+      activo: data.activo,
+      creado_en: data.creado_en,
+      cantidad_sucursales: 0,
+    };
   }
 
   private async sincronizarSucursalesProducto(id_producto: number, ids_sucursales: number[]): Promise<void> {

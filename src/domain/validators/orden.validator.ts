@@ -1,4 +1,54 @@
-import { EstadoOperativo, EstadoFinanciero, CrearOrdenDetalleDto, ActualizarOrdenDto, ActualizarOrdenDetalleDto } from '../interfaces/orden.interface';
+import { EstadoOperativo, EstadoFinanciero, CrearOrdenDetalleDto, CrearOrdenDto, ActualizarOrdenDto, ActualizarOrdenDetalleDto } from '../interfaces/orden.interface';
+
+export function validateCrearOrden(body: any): { data?: CrearOrdenDto; error?: string } {
+  const { id_sucursal, tipo_orden, id_mesa, nombre_cliente, apellido_cliente, detalles } = body ?? {};
+
+  if (typeof id_sucursal !== 'number' || id_sucursal <= 0) {
+    return { error: 'La sucursal es requerida y debe ser un número válido.' };
+  }
+
+  if (typeof tipo_orden !== 'string' || tipo_orden.trim().length === 0) {
+    return { error: 'El tipo de orden es requerido y debe ser una cadena no vacía.' };
+  }
+
+  if (id_mesa !== undefined && (typeof id_mesa !== 'number' || id_mesa <= 0)) {
+    return { error: 'El ID de mesa debe ser un número positivo.' };
+  }
+
+  if (typeof nombre_cliente !== 'string' || nombre_cliente.trim().length === 0) {
+    return { error: 'El nombre del cliente es requerido.' };
+  }
+
+  if (typeof apellido_cliente !== 'string' || apellido_cliente.trim().length === 0) {
+    return { error: 'El apellido del cliente es requerido.' };
+  }
+
+  if (!Array.isArray(detalles) || detalles.length === 0) {
+    return { error: 'La orden debe incluir al menos un producto.' };
+  }
+
+  for (const detalle of detalles) {
+    const detalleValidado = validateCrearOrdenDetalle(detalle);
+    if (detalleValidado.error) {
+      return { error: detalleValidado.error };
+    }
+  }
+
+  return {
+    data: {
+      id_sucursal,
+      tipo_orden: tipo_orden.trim(),
+      ...(id_mesa !== undefined && { id_mesa }),
+      nombre_cliente: nombre_cliente.trim(),
+      apellido_cliente: apellido_cliente.trim(),
+      detalles: detalles.map((detalle: any) => ({
+        id_producto: detalle.id_producto,
+        cantidad: detalle.cantidad,
+        nota: detalle.nota?.trim(),
+      })),
+    },
+  };
+}
 
 export function validateCrearOrdenDetalle(body: any): { data?: CrearOrdenDetalleDto; error?: string } {
   const { id_producto, cantidad, nota } = body ?? {};

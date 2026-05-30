@@ -1,8 +1,107 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
-import type { OrdenDto, OrdenDetalleDto, OrdenListItem, ActualizarOrdenDto, ActualizarOrdenDetalleDto, TipoOrden } from '../domain/interfaces/orden.interface';
+import type { OrdenDto, OrdenDetalleDto, OrdenListItem, ActualizarOrdenDto, ActualizarOrdenDetalleDto, CrearOrdenDto, TipoOrden } from '../domain/interfaces/orden.interface';
 
 export class OrdenService {
+
+  async crearOrden(dto: CrearOrdenDto, id_usuario: number): Promise<OrdenDto & { detalles: OrdenDetalleDto[] }> {
+    const { data: tipoOrdenData, error: tipoOrdenError } = await supabase
+      .from('tipo_orden')
+      .select('id_tipo_orden, requiere_mesa')
+      .ilike('nombre', dto.tipo_orden.trim())
+      .single();
+
+    if (tipoOrdenError || !tipoOrdenData) {
+      throw new AppError('Tipo de orden no encontrado', 400);
+    }
+
+    if (tipoOrdenData.requiere_mesa && !dto.id_mesa) {
+      throw new AppError('El tipo de orden seleccionado requiere una mesa', 400);
+    }
+
+    const { data: sucursalTipoData, error: sucursalTipoError } = await supabase
+      .from('sucursal_tipo_orden')
+      .select('id_sucursal_tipo_orden')
+      .eq('id_sucursal', dto.id_sucursal)
+      .eq('id_tipo_orden', tipoOrdenData.id_tipo_orden)
+      .eq('activo', true)
+      .single();
+
+    if (sucursalTipoError || !sucursalTipoData) {
+      throw new AppError('Tipo de orden no disponible para esta sucursal', 400);
+    }
+
+    const pedidoPayload = {
+      id_usuario,
+      total: 0,
+      id_sucursal_tipo_orden: sucursalTipoData.id_sucursal_tipo_orden,
+      id_sucursal: dto.id_sucursal,
+      estado_operativo: 'ABIERTO',
+      estado_financiero: 'SIN_PAGAR',
+      nombre_cliente: dto.nombre_cliente.trim(),
+      apellido_cliente: dto.apellido_cliente.trim(),
+    };
+
+    const { data: pedido, error: pedidoError } = await supabase
+      .from('pedido')
+      .insert(pedidoPayload)
+      .select()
+      .single();
+
+    if (pedidoError || !pedido) {
+      throw new AppError('Error al crear pedido', 500);
+    }
+
+    if (dto.id_mesa) {
+      const { error: pedidoMesaError } = await supabase
+        .from('pedido_mesa')
+        .insert({ id_pedido: pedido.id_pedido, id_mesa: dto.id_mesa, activo: true });
+
+      if (pedidoMesaError) {
+        throw new AppError('Error al asignar la mesa al pedido', 500);
+      }
+    }
+
+    for (const detalle of dto.detalles) {
+      const { data: producto, error: productoError } = await supabase
+        .from('producto')
+        .select('precio, nombre')
+        .eq('id_producto', detalle.id_producto)
+        .single();
+
+      if (productoError || !producto) {
+        throw new AppError(`Producto ${detalle.id_producto} no encontrado`, 404);
+      }
+
+      const subtotal = detalle.cantidad * producto.precio;
+      const { error: detalleError } = await supabase
+        .from('pedido_producto')
+        .insert({
+          id_pedido: pedido.id_pedido,
+          id_producto: detalle.id_producto,
+          id_usuario_agrega: id_usuario,
+          cantidad: detalle.cantidad,
+          precio_unitario: producto.precio,
+          subtotal,
+          estado_linea: 'PENDIENTE',
+          nota: detalle.nota,
+        });
+
+      if (detalleError) {
+        throw new AppError('Error al agregar detalle al pedido', 500);
+      }
+    }
+
+    await this.recalcularTotales(pedido.id_pedido);
+
+    const orden = await this.obtenerOrdenPorId(pedido.id_pedido);
+    if (!orden) {
+      throw new AppError('Pedido no encontrado después de crearlo', 500);
+    }
+
+    const detalles = await this.obtenerDetallesOrden(pedido.id_pedido);
+    return { ...orden, detalles };
+  }
 
   async getSucursalTipoOrdenId(id_sucursal: number, tipo_orden: TipoOrden): Promise<number> {
     // First get tipo_orden id

@@ -53,6 +53,15 @@ export interface CrearOrdenDetalleDto {
   nota?: string;
 }
 
+export interface CrearOrdenDto {
+  id_sucursal: number;
+  tipo_orden: string;
+  id_mesa?: number;
+  nombre_cliente: string;
+  apellido_cliente: string;
+  detalles: CrearOrdenDetalleDto[];
+}
+
 export interface ActualizarOrdenDto {
   tipo_orden?: TipoOrden;
   id_mesa?: number;

@@ -67,7 +67,20 @@ export class PagoService {
       .single();
 
     if (error) {
-      throw new AppError('Error al crear pago', 500);
+      throw new AppError(`Error al crear pago: ${error.message}`, 500);
+    }
+
+    const { error: cierreError } = await supabase
+      .from('pedido')
+      .update({
+        estado_operativo: 'CERRADO',
+        estado_financiero: 'PAGADO',
+        fecha_cerrado: new Date(),
+      })
+      .eq('id_pedido', dto.id_orden);
+
+    if (cierreError) {
+      throw new AppError('Pago registrado, pero no se pudo cerrar el pedido', 500);
     }
 
     return {

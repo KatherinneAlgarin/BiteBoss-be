@@ -2,6 +2,7 @@
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/app.ts",
     "build": "tsc",
+    "lint": "tsc --noEmit",
     "start": "node dist/app.js",
     "test": "jest",
     "test:watch": "jest --watch",
