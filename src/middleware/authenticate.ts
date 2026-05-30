@@ -32,6 +32,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     .select(`
       id_usuario,
       nombre,
+      codigo_empleado,
       email,
       activo,
       usuario_sucursal (
@@ -66,6 +67,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     auth_id: authData.user.id,
     id_usuario: usuario.id_usuario,
     nombre: usuario.nombre,
+    codigo_empleado: usuario.codigo_empleado,
     email: usuario.email,
     id_usuario_sucursal: asignacion.id_usuario_sucursal,
     id_rol: (asignacion.rol as any)?.id_rol,

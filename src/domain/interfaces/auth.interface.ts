@@ -11,6 +11,7 @@ export interface AuthPayload {
   auth_id: string;// UUID de Supabase (sub)
   id_usuario?: number; // desde app_metadata
   nombre?: string;
+  codigo_empleado?: string | null;
   email: string;
   id_usuario_sucursal?: number;
   id_rol?: number;

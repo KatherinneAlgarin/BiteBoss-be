@@ -28,7 +28,10 @@ export class PagoController {
     }
 
     try {
-      const pago = await this.pagoService.crearPago(data!);
+      const pago = await this.pagoService.crearPago(data!, {
+        id_usuario: req.usuario?.id_usuario,
+        id_sucursal: req.usuario?.id_sucursal,
+      });
       res.status(201).json(pago);
     } catch (err) {
       if (err instanceof AppError) {

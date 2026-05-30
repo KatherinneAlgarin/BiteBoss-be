@@ -17,6 +17,7 @@ import { IngredienteRoutes } from './ingrediente/ingrediente.routes';
 import { PedidoProveedorRoutes } from './pedido-proveedor/pedido-proveedor.routes';
 import { CategoriaRoutes } from './categoria/categoria.routes';
 import { KpiRoutes } from './kpi/kpi.routes';
+import { CajaCierreRoutes } from './caja-cierre/caja-cierre.routes';
 
 export class AppRoutes {
 
@@ -41,6 +42,7 @@ export class AppRoutes {
     router.use('/api/pedidos-proveedor', PedidoProveedorRoutes.routes);
     router.use('/api/categorias', CategoriaRoutes.routes);
     router.use('/api/kpis', KpiRoutes.routes);
+    router.use('/api/caja-cierres', CajaCierreRoutes.routes);
 
 
     router.get('/api', (_req, res) => {

@@ -4,6 +4,27 @@ import type { PagoDto, MetodoPagoSucursalDto, CrearPagoDto } from '../domain/int
 
 export class PagoService {
 
+  private async obtenerIdCajaSesionActiva(id_usuario: number, id_sucursal: number): Promise<number | null> {
+    const { data: existente, error: existenteError } = await supabase
+      .from('caja_sesion')
+      .select('id_caja_sesion')
+      .eq('id_usuario_cajero', id_usuario)
+      .eq('id_sucursal', id_sucursal)
+      .in('estado', ['ABIERTA', 'PENDIENTE'])
+      .order('fecha_apertura', { ascending: false })
+      .limit(1);
+
+    if (existenteError) {
+      return null;
+    }
+
+    if ((existente ?? []).length > 0) {
+      return (existente as any[])[0].id_caja_sesion as number;
+    }
+
+    return null;
+  }
+
   async listarMetodosPago(id_sucursal: number): Promise<MetodoPagoSucursalDto[]> {
     const { data, error } = await supabase
       .from('sucursal_metodo_pago')
@@ -28,7 +49,7 @@ export class PagoService {
     }));
   }
 
-  async crearPago(dto: CrearPagoDto): Promise<PagoDto> {
+  async crearPago(dto: CrearPagoDto, context?: { id_usuario?: number; id_sucursal?: number }): Promise<PagoDto> {
 
     const { data: tipoPagoData, error: tipoError } = await supabase
       .from('tipo_pago')
@@ -50,14 +71,24 @@ export class PagoService {
       fecha_pago: new Date(),
     };
 
+    const idUsuarioPago = context?.id_usuario ?? 1;
+    const idCajaSesion = context?.id_usuario && context?.id_sucursal
+      ? await this.obtenerIdCajaSesionActiva(context.id_usuario, context.id_sucursal)
+      : null;
+
+    if (context?.id_usuario && context?.id_sucursal && !idCajaSesion) {
+      throw new AppError('No hay una sesión de caja activa para este usuario. Debes abrir caja primero.', 409);
+    }
+
     const pagoPedidoData = {
-      id_usuario: 1, 
+      id_usuario: idUsuarioPago,
       id_pedido: dto.id_orden,
       id_metodo_pago: tipoPagoData.id_tipo_pago,
       propina: dto.propina || 0,
       monto: dto.monto,
       nota: dto.referencia,
       tipo_pago: 'PAGO',
+      id_caja_sesion: idCajaSesion,
     };
 
     const { data, error } = await supabase
