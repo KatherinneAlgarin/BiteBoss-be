@@ -10,6 +10,18 @@ import type {
   KpiSucursalResumen,
 } from '../domain/interfaces/kpi.interface';
 
+function parseLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toLocalISO(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export class KpiService {
 
   // ─── Público ─────────────────────────────────────────────────────────────
@@ -79,12 +91,15 @@ export class KpiService {
     fecha_fin: string;
     id_sucursal?: number;
   }) {
+    const fechaFinExclusiva = parseLocalDate(params.fecha_fin);
+    fechaFinExclusiva.setDate(fechaFinExclusiva.getDate() + 1);
+
     let query = supabase
       .from('pedido')
       .select('id_pedido, total, fecha_apertura, id_sucursal, id_sucursal_tipo_orden')
       .eq('estado_financiero', 'PAGADO')
       .gte('fecha_apertura', params.fecha_inicio)
-      .lte('fecha_apertura', params.fecha_fin);
+      .lt('fecha_apertura', toLocalISO(fechaFinExclusiva));
 
     if (params.id_sucursal !== undefined) {
       query = query.eq('id_sucursal', params.id_sucursal);
@@ -271,7 +286,42 @@ export class KpiService {
     fecha_inicio: string,
     fecha_fin: string,
   ): KpiTendencia[] {
-    // Agrupar por día
+    const inicio = parseLocalDate(fecha_inicio);
+    const fin = parseLocalDate(fecha_fin);
+    const esUnSoloDia = inicio.getTime() === fin.getTime();
+    const resultado: KpiTendencia[] = [];
+
+    if (esUnSoloDia) {
+      const map = new Map<string, KpiTendencia>();
+
+      for (const p of pedidos) {
+        const fechaHora = new Date(p.fecha_apertura);
+        const fecha = toLocalISO(fechaHora);
+        const hora = `${String(fechaHora.getHours()).padStart(2, '0')}:00`;
+        const key = `${fecha} ${hora}`;
+
+        if (!map.has(key)) {
+          map.set(key, { fecha, hora, total: 0, cantidad: 0 });
+        }
+        const entry = map.get(key)!;
+        entry.total += Number(p.total ?? 0);
+        entry.cantidad += 1;
+      }
+
+      const cursor = new Date(inicio);
+      for (let hour = 0; hour < 24; hour += 1) {
+        const key = `${toLocalISO(cursor)} ${String(hour).padStart(2, '0')}:00`;
+        const entry = map.get(key);
+        resultado.push({
+          fecha: toLocalISO(cursor),
+          hora: `${String(hour).padStart(2, '0')}:00`,
+          total: entry ? Math.round(entry.total * 100) / 100 : 0,
+          cantidad: entry?.cantidad ?? 0,
+        });
+      }
+      return resultado;
+    }
+
     const map = new Map<string, KpiTendencia>();
 
     for (const p of pedidos) {
@@ -285,13 +335,9 @@ export class KpiService {
     }
 
     // Rellenar días vacíos dentro del rango para que la línea no tenga huecos
-    const inicio = new Date(fecha_inicio);
-    const fin = new Date(fecha_fin);
-    const resultado: KpiTendencia[] = [];
     const cursor = new Date(inicio);
-
     while (cursor <= fin) {
-      const key = cursor.toISOString().slice(0, 10);
+      const key = toLocalISO(cursor);
       const entry = map.get(key);
       resultado.push({
         fecha: key,

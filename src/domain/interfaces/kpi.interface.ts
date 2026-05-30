@@ -31,6 +31,7 @@ export interface KpiProducto {
 
 export interface KpiTendencia {
   fecha: string; // 'YYYY-MM-DD'
+  hora?: string; // 'HH:00' cuando el rango es de un solo día
   total: number;
   cantidad: number;
 }
