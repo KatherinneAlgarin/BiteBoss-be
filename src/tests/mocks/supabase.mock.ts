@@ -24,6 +24,7 @@ export const createSupabaseMock = () => {
     neq: jest.fn(),
     in: jest.fn(),
     not: jest.fn(),
+    contains: jest.fn(),
     ilike: jest.fn(),
     order: jest.fn(),
     limit: jest.fn(),
