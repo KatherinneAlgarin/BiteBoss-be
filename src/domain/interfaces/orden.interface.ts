@@ -46,6 +46,8 @@ export interface OrdenListItem {
   fecha_cerrado?: Date | null;
   usuario_nombre?: string;
   mesa_numero?: number;
+  id_zona?: number | null;
+  zona_nombre?: string | null;
   nombre_cliente: string;
   apellido_cliente?: string;
   detalles?: Array<{

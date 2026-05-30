@@ -152,7 +152,11 @@ export class OrdenService {
           tipo_orden!inner (nombre)
         ),
         pedido_mesa (
-          mesa!inner (numero)
+          mesa!inner (
+            numero,
+            id_zona,
+            zona (nombre)
+          )
         )
       `)
       .order('fecha_apertura', { ascending: false });
@@ -210,7 +214,9 @@ export class OrdenService {
       detallesMap.set(idPedido, list);
     }
 
-    return (data ?? []).map(item => ({
+    return (data ?? []).map(item => {
+      const mesaData = (item.pedido_mesa as any)?.[0]?.mesa;
+      return ({
       id_pedido: item.id_pedido,
       numero_orden: item.id_pedido.toString(),
       tipo_orden: (item.sucursal_tipo_orden as any)?.tipo_orden?.nombre || 'unknown',
@@ -220,11 +226,14 @@ export class OrdenService {
       fecha_apertura: item.fecha_apertura,
       fecha_cerrado: (item as any).fecha_cerrado ?? null,
       usuario_nombre: userMap.get(item.id_usuario) || null,
-      mesa_numero: (item.pedido_mesa as any)?.[0]?.mesa?.numero || null,
+      mesa_numero: mesaData?.numero || null,
+      id_zona: mesaData?.id_zona ?? null,
+      zona_nombre: mesaData?.zona?.nombre ?? null,
       nombre_cliente: item.nombre_cliente,
       apellido_cliente: item.apellido_cliente,
       detalles: detallesMap.get(item.id_pedido) ?? [],
-    }));
+      });
+    });
   }
 
   async obtenerOrdenPorId(id_pedido: number): Promise<OrdenDto | null> {
