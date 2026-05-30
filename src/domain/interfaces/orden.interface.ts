@@ -42,9 +42,17 @@ export interface OrdenListItem {
   estado_operativo: EstadoOperativo;
   total: number;
   fecha_apertura: Date;
+  fecha_cerrado?: Date | null;
   usuario_nombre?: string;
   mesa_numero?: number;
   nombre_cliente: string;
+  apellido_cliente?: string;
+  detalles?: Array<{
+    id_producto: number;
+    nombre_producto?: string;
+    cantidad: number;
+    nota?: string;
+  }>;
 }
 
 export interface CrearOrdenDetalleDto {

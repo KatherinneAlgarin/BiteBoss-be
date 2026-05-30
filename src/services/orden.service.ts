@@ -141,6 +141,7 @@ export class OrdenService {
         id_pedido,
         total,
         fecha_apertura,
+        fecha_cerrado,
         nombre_cliente,
         apellido_cliente,
         estado_operativo,
@@ -177,6 +178,37 @@ export class OrdenService {
 
     const userMap = new Map(usersRes.data?.map(u => [u.id_usuario, u.nombre]) || []);
 
+    const orderIds = (data ?? []).map(item => item.id_pedido);
+    const { data: detallesRaw, error: detallesError } = orderIds.length > 0
+      ? await supabase
+        .from('pedido_producto')
+        .select(`
+          id_pedido,
+          id_producto,
+          cantidad,
+          nota,
+          producto!inner(nombre)
+        `)
+        .in('id_pedido', orderIds)
+      : { data: [], error: null };
+
+    if (detallesError) {
+      throw new AppError('Error al listar detalle de pedidos', 500);
+    }
+
+    const detallesMap = new Map<number, Array<{ id_producto: number; nombre_producto?: string; cantidad: number; nota?: string }>>();
+    for (const detalle of (detallesRaw ?? [])) {
+      const idPedido = (detalle as any).id_pedido as number;
+      const list = detallesMap.get(idPedido) ?? [];
+      list.push({
+        id_producto: (detalle as any).id_producto,
+        nombre_producto: (detalle as any).producto?.nombre,
+        cantidad: (detalle as any).cantidad,
+        nota: (detalle as any).nota ?? undefined,
+      });
+      detallesMap.set(idPedido, list);
+    }
+
     return (data ?? []).map(item => ({
       id_pedido: item.id_pedido,
       numero_orden: item.id_pedido.toString(),
@@ -184,9 +216,12 @@ export class OrdenService {
       estado_operativo: item.estado_operativo,
       total: item.total,
       fecha_apertura: item.fecha_apertura,
+      fecha_cerrado: (item as any).fecha_cerrado ?? null,
       usuario_nombre: userMap.get(item.id_usuario) || null,
       mesa_numero: (item.pedido_mesa as any)?.[0]?.mesa?.numero || null,
       nombre_cliente: item.nombre_cliente,
+      apellido_cliente: item.apellido_cliente,
+      detalles: detallesMap.get(item.id_pedido) ?? [],
     }));
   }
 
@@ -255,6 +290,9 @@ export class OrdenService {
 
     if (dto.estado_operativo) {
       updateData.estado_operativo = dto.estado_operativo;
+      if (['CERRADO', 'CANCELADO', 'FINALIZADO'].includes(dto.estado_operativo)) {
+        updateData.fecha_cerrado = new Date();
+      }
     }
 
     if (dto.nombre_cliente !== undefined) {

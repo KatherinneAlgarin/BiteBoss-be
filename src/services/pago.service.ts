@@ -57,7 +57,7 @@ export class PagoService {
       propina: dto.propina || 0,
       monto: dto.monto,
       nota: dto.referencia,
-      tipo_pago: 'VENTA',
+      tipo_pago: 'PAGO',
     };
 
     const { data, error } = await supabase
@@ -67,7 +67,7 @@ export class PagoService {
       .single();
 
     if (error) {
-      throw new AppError(`Error al crear pago: ${error.message}`, 500);
+      throw new AppError('Error al crear pago', 500);
     }
 
     const { error: cierreError } = await supabase
