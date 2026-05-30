@@ -2,6 +2,7 @@ export interface CrearUsuarioDto {
   nombre: string;
   email: string;
   password: string;
+  codigo_empleado?: string;
   id_rol: number;
   id_sucursal: number;
 }

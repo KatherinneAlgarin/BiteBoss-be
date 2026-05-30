@@ -12,6 +12,30 @@ import type {
 
 export class UsuarioService {
 
+  async generarCodigoEmpleadoAleatorio(): Promise<string> {
+    const MAX_INTENTOS = 50;
+
+    for (let i = 0; i < MAX_INTENTOS; i++) {
+      const codigo = String(Math.floor(1000 + Math.random() * 9000));
+
+      const { data, error } = await supabase
+        .from('usuario')
+        .select('id_usuario')
+        .eq('codigo_empleado', codigo)
+        .limit(1);
+
+      if (error) {
+        throw new AppError('No se pudo generar un código de empleado', 500);
+      }
+
+      if ((data ?? []).length === 0) {
+        return codigo;
+      }
+    }
+
+    throw new AppError('No hay códigos de empleado disponibles en este momento', 409);
+  }
+
   async listarUsuarios(
     id_sucursal_usuario?: number,
     esAdmin = false,
@@ -188,7 +212,7 @@ export class UsuarioService {
   }
 
   async crearUsuario(dto: CrearUsuarioDto): Promise<UsuarioCreadoResponse> {
-  const { nombre, email, password, id_rol, id_sucursal } = dto;
+  const { nombre, email, password, codigo_empleado, id_rol, id_sucursal } = dto;
 
   const { data: existente } = await supabase
     .from('usuario')
@@ -215,12 +239,15 @@ export class UsuarioService {
 
   const { data: usuarioData, error: usuarioError } = await supabase
     .from('usuario')
-    .insert({ nombre, email, activo: true })
+    .insert({ nombre, email, activo: true, codigo_empleado: codigo_empleado ?? null })
     .select('id_usuario')
     .single();
 
   if (usuarioError || !usuarioData) {
     await supabase.auth.admin.deleteUser(authData.user.id);
+    if ((usuarioError as any)?.code === '23505') {
+      throw new AppError('El código de empleado ingresado ya está registrado', 409);
+    }
     throw new AppError('Error al registrar el usuario', 500);
   }
 

@@ -1,7 +1,7 @@
 import type { ActualizarPerfilDto, CrearUsuarioDto } from '../interfaces/usuario.interface';
 
 export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error?: string } {
-  const { nombre, email, password, id_rol, id_sucursal } = body ?? {};
+  const { nombre, email, password, codigo_empleado, id_rol, id_sucursal } = body ?? {};
 
   if (!nombre || typeof nombre !== 'string' || nombre.trim().length < 2) {
     return { error: 'El nombre es requerido y debe tener al menos 2 caracteres' };
@@ -34,11 +34,19 @@ export function validateCrearUsuario(body: any): { data?: CrearUsuarioDto; error
     return { error: 'La sucursal es requerida' };
   }
 
+  if (codigo_empleado !== undefined) {
+    const codigo = String(codigo_empleado).trim();
+    if (!/^\d{4}$/.test(codigo)) {
+      return { error: 'El código de empleado debe tener 4 dígitos numéricos' };
+    }
+  }
+
   return {
     data: {
       nombre: nombre.trim(),
       email: emailNorm,
       password,
+      codigo_empleado: codigo_empleado ? codigo_empleado.trim() : undefined,
       id_rol,
       id_sucursal,
     },

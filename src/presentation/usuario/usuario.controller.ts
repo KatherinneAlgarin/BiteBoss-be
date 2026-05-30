@@ -6,6 +6,19 @@ import { AppError } from '../../helpers/app-error';
 export class UsuarioController {
   constructor(private readonly usuarioService = new UsuarioService()) {}
 
+  async generarCodigoEmpleadoAleatorio(_req: Request, res: Response): Promise<void> {
+    try {
+      const codigo_empleado = await this.usuarioService.generarCodigoEmpleadoAleatorio();
+      res.json({ codigo_empleado });
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
   async listarUsuarios(req: Request, res: Response): Promise<void> {
     try {
       const esAdmin = req.usuario?.rol?.toUpperCase() === 'ADMIN';
