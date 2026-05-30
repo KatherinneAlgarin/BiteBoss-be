@@ -7,6 +7,7 @@ import type {
   ListarMovimientosInventarioDto,
   RegistrarStockIngredienteDto,
   AjusteStockDto,
+  DescartarInventarioDto,
   ActualizarLimitesDto,
   TransferirStockDto,
 } from '../domain/interfaces/inventario.interface';
@@ -182,6 +183,7 @@ export class InventarioService {
       .from('inventario')
       .select('id_inventario, id_ingrediente, id_bodega, stock_actual, stock_minimo, stock_maximo, lote, fecha_vencimiento')
       .in('id_bodega', bodegaIds)
+      .eq('activo', true)
       .not('id_ingrediente', 'is', null);
 
     if (invError) throw new AppError('Error al consultar inventario de ingredientes', 500);
@@ -444,6 +446,7 @@ export class InventarioService {
       .select('id_inventario')
       .eq('id_ingrediente', dto.id_ingrediente)
       .eq('id_bodega', dto.id_bodega)
+      .eq('activo', true)
       .maybeSingle();
 
     if (existente) throw new AppError('Ya existe un registro de stock para este ingrediente en esta bodega', 409);
@@ -560,6 +563,56 @@ export class InventarioService {
       .eq('id_inventario', id_inventario);
 
     if (error) throw new AppError('Error al actualizar límites', 500);
+  }
+
+  async descartarStockIngrediente(
+    id_inventario: number,
+    dto: DescartarInventarioDto,
+    actor: { id_usuario: number; rol: string; id_sucursal?: number }
+  ): Promise<void> {
+    const { data: inv } = await supabase
+      .from('inventario')
+      .select('id_inventario, id_bodega, stock_actual, activo, bodega(id_sucursal)')
+      .eq('id_inventario', id_inventario)
+      .maybeSingle();
+
+    if (!inv) throw new AppError('Registro de inventario no encontrado', 404);
+    if ((inv as any).activo === false) throw new AppError('El registro ya fue descartado', 409);
+
+    const role = this.normalizeRole(actor.rol);
+    const bodegaInfoRaw = (inv as any).bodega;
+    const bodegaInfo = Array.isArray(bodegaInfoRaw) ? bodegaInfoRaw[0] : bodegaInfoRaw;
+    const idSucursalInventario = Number(bodegaInfo?.id_sucursal);
+
+    if (role !== 'ADMIN') {
+      if (!actor.id_sucursal || !Number.isFinite(idSucursalInventario)) {
+        throw new AppError('No se pudo validar la sucursal del descarte', 400);
+      }
+      if (Number(actor.id_sucursal) !== idSucursalInventario) {
+        throw new AppError('Solo puedes descartar stock de tu sucursal', 403);
+      }
+    }
+
+    const stockAnterior = Number((inv as any).stock_actual ?? 0);
+
+    const { error: updateError } = await supabase
+      .from('inventario')
+      .update({ activo: false, stock_actual: 0 })
+      .eq('id_inventario', id_inventario);
+
+    if (updateError) throw new AppError('Error al descartar registro de inventario', 500);
+
+    if (stockAnterior > 0) {
+      await this.insertarMovimientoConNotaCompat({
+        tipo: 'AJUSTE_NEGATIVO',
+        id_inventario,
+        id_usuario: actor.id_usuario,
+        cantidad: stockAnterior,
+        stock_anterior: stockAnterior,
+        stock_nuevo: 0,
+        nota: `Descarte de registro: ${dto.nota}`,
+      });
+    }
   }
 
   async transferirStock(id_inventario: number, dto: TransferirStockDto, id_usuario: number): Promise<void> {

@@ -66,6 +66,10 @@ export interface AjusteStockDto {
   nota: string;
 }
 
+export interface DescartarInventarioDto {
+  nota: string;
+}
+
 export interface ActualizarLimitesDto {
   stock_minimo: number;
   stock_maximo: number;

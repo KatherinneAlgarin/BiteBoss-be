@@ -16,6 +16,7 @@ export class InventarioRoutes {
     router.get('/movimientos', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.listarMovimientos(req, res));
     router.post('/stock-ingrediente', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.registrarStockIngrediente(req, res));
     router.patch('/:id/ajuste', authorizeRoles('admin', 'encargado'), (req, res) => controller.ajustarStock(req, res));
+    router.patch('/:id/descartar', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.descartarStock(req, res));
     router.patch('/:id/limites', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.actualizarLimites(req, res));
     router.post('/:id/transferir', authorizeRoles('admin', 'encargado', 'gerente'), (req, res) => controller.transferirStock(req, res));
 

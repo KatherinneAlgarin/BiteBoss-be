@@ -165,6 +165,44 @@ export class InventarioController {
     }
   }
 
+  async descartarStock(req: Request, res: Response): Promise<void> {
+    try {
+      const id_inventario = Number(req.params.id as string);
+      const { nota } = req.body;
+
+      if (!Number.isFinite(id_inventario) || id_inventario <= 0) {
+        res.status(400).json({ mensaje: 'ID de inventario inválido' });
+        return;
+      }
+
+      if (typeof nota !== 'string' || nota.trim().length < 10) {
+        res.status(400).json({ mensaje: 'La nota es obligatoria y debe tener al menos 10 caracteres' });
+        return;
+      }
+
+      const usuario = req.usuario;
+      if (!usuario?.id_usuario || !usuario.rol) {
+        res.status(401).json({ mensaje: 'Usuario no autenticado' });
+        return;
+      }
+
+      await this.inventarioService.descartarStockIngrediente(
+        id_inventario,
+        { nota: nota.trim() },
+        {
+          id_usuario: usuario.id_usuario,
+          rol: usuario.rol,
+          id_sucursal: usuario.id_sucursal,
+        }
+      );
+
+      res.json({ mensaje: 'Registro descartado correctamente' });
+    } catch (err) {
+      if (err instanceof AppError) { res.status(err.statusCode).json({ mensaje: err.message }); return; }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
   async transferirStock(req: Request, res: Response): Promise<void> {
     try {
       const id_inventario = Number(req.params.id as string);
