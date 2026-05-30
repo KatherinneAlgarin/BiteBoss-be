@@ -68,9 +68,9 @@ describe('validateActualizarOrden', () => {
   });
 
   it('debería retornar data con estado_operativo válido', () => {
-    const resultado = validateActualizarOrden({ estado_operativo: 'ABIERTO' });
+    const resultado = validateActualizarOrden({ estado_operativo: 'NUEVO' });
     expect(resultado.error).toBeUndefined();
-    expect(resultado.data?.estado_operativo).toBe('ABIERTO');
+    expect(resultado.data?.estado_operativo).toBe('NUEVO');
   });
 
   it('debería retornar data con tipo_orden válido', () => {

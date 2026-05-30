@@ -9,7 +9,7 @@ jest.mock('../../../domain/validators/orden.validator', () => ({
 
 const ordenValidator = require('../../../domain/validators/orden.validator');
 
-const ordenBase = { id_pedido: 1, total: 50, estado_operativo: 'ABIERTO', numero_orden: '1' };
+const ordenBase = { id_pedido: 1, total: 50, estado_operativo: 'NUEVO', numero_orden: '1' };
 const detalleBase = { id_pedido_producto: 1, id_pedido: 1, id_producto: 1, cantidad: 2, subtotal: 30 };
 const usuarioMock = { id_usuario: 1, id_sucursal: 1, rol: 'mesero' };
 
@@ -32,7 +32,7 @@ describe('OrdenController', () => {
     };
     controller = new OrdenController(mockOrdenService);
     res = { json: jest.fn(), status: jest.fn().mockReturnThis(), send: jest.fn() };
-    ordenValidator.validateActualizarOrden.mockReturnValue({ data: { estado_operativo: 'EN_PREPARACION' }, error: null });
+    ordenValidator.validateActualizarOrden.mockReturnValue({ data: { estado_operativo: 'EN_PROCESO' }, error: null });
     ordenValidator.validateCrearOrdenDetalle.mockReturnValue({ data: { id_producto: 1, cantidad: 2 }, error: null });
     ordenValidator.validateActualizarOrdenDetalle.mockReturnValue({ data: { cantidad: 3 }, error: null });
   });
@@ -47,9 +47,9 @@ describe('OrdenController', () => {
 
     it('debería pasar el estado como filtro', async () => {
       mockOrdenService.listarOrdenes.mockResolvedValueOnce([]);
-      const req = { query: { estado: 'ABIERTO' }, usuario: usuarioMock } as any;
+      const req = { query: { estado: 'NUEVO' }, usuario: usuarioMock } as any;
       await controller.listarOrdenes(req, res);
-      expect(mockOrdenService.listarOrdenes).toHaveBeenCalledWith(usuarioMock.id_sucursal, 'ABIERTO');
+      expect(mockOrdenService.listarOrdenes).toHaveBeenCalledWith(usuarioMock.id_sucursal, 'NUEVO');
     });
 
     it('debería responder con el statusCode del AppError', async () => {
@@ -112,9 +112,9 @@ describe('OrdenController', () => {
     });
 
     it('debería actualizar la orden', async () => {
-      const ordenActualizada = { ...ordenBase, estado_operativo: 'EN_PREPARACION' };
+      const ordenActualizada = { ...ordenBase, estado_operativo: 'EN_PROCESO' };
       mockOrdenService.actualizarOrden.mockResolvedValueOnce(ordenActualizada);
-      const req = { params: { id: '1' }, body: { estado_operativo: 'EN_PREPARACION' } } as any;
+      const req = { params: { id: '1' }, body: { estado_operativo: 'EN_PROCESO' } } as any;
       await controller.actualizarOrden(req, res);
       expect(res.json).toHaveBeenCalledWith(ordenActualizada);
     });

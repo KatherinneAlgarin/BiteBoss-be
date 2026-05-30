@@ -36,7 +36,7 @@ export class OrdenService {
       total: 0,
       id_sucursal_tipo_orden: sucursalTipoData.id_sucursal_tipo_orden,
       id_sucursal: dto.id_sucursal,
-      estado_operativo: 'ABIERTO',
+      estado_operativo: 'NUEVO',
       estado_financiero: 'SIN_PAGAR',
       nombre_cliente: dto.nombre_cliente.trim(),
       apellido_cliente: dto.apellido_cliente.trim(),
@@ -290,7 +290,7 @@ export class OrdenService {
 
     if (dto.estado_operativo) {
       updateData.estado_operativo = dto.estado_operativo;
-      if (['CERRADO', 'CANCELADO', 'FINALIZADO'].includes(dto.estado_operativo)) {
+      if (['ENTREGADO', 'CANCELADO'].includes(dto.estado_operativo)) {
         updateData.fecha_cerrado = new Date();
       }
     }

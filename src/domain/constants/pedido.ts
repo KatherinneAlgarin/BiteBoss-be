@@ -5,4 +5,4 @@
  *
  * Si en el futuro se agregan más estados terminales, basta con añadirlos aquí.
  */
-export const ESTADOS_PEDIDO_TERMINALES = ['cerrado', 'cancelado'] as const;
+export const ESTADOS_PEDIDO_TERMINALES = ['ENTREGADO', 'CANCELADO'] as const;

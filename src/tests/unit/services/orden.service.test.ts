@@ -22,7 +22,7 @@ describe('OrdenService', () => {
     fecha_apertura: '2024-01-01T10:00:00Z',
     nombre_cliente: 'Ana',
     apellido_cliente: 'García',
-    estado_operativo: 'ABIERTO',
+    estado_operativo: 'NUEVO',
     id_usuario: null,
     id_sucursal: 1,
     id_sucursal_tipo_orden: 1,
@@ -59,7 +59,7 @@ describe('OrdenService', () => {
 
       expect(resultado).toHaveLength(1);
       expect(resultado[0].tipo_orden).toBe('Para llevar');
-      expect(resultado[0].estado_operativo).toBe('ABIERTO');
+      expect(resultado[0].estado_operativo).toBe('NUEVO');
     });
 
     it('debería retornar array vacío si no hay pedidos', async () => {
@@ -86,7 +86,7 @@ describe('OrdenService', () => {
     it('debería retornar la orden si existe', async () => {
       // from().select().eq().single()
       mockSupabase.from().select().eq().single.mockResolvedValueOnce({
-        data: { id_pedido: 1, total: 50, estado_operativo: 'ABIERTO' },
+        data: { id_pedido: 1, total: 50, estado_operativo: 'NUEVO' },
         error: null,
       });
 
@@ -166,7 +166,7 @@ describe('OrdenService', () => {
     // ✅ CASOS CORRECTOS
     it('debería actualizar el estado_operativo sin recalcular si no es necesario', async () => {
       // dto solo tiene estado_operativo -> llama recalcularTotales al final
-      const pedidoActualizado = { id_pedido: 1, estado_operativo: 'EN_PREPARACION', total: 50 };
+      const pedidoActualizado = { id_pedido: 1, estado_operativo: 'EN_PROCESO', total: 50 };
 
       // 1. update().eq().select().single()
       mockSupabase.from().update().eq().select().single.mockResolvedValueOnce({
@@ -178,9 +178,9 @@ describe('OrdenService', () => {
       // 3. recalcularTotales -> update total -> from().update().eq() -> mockResult
       mockSupabase.from().mockResult({ data: null, error: null });
 
-      const resultado = await ordenService.actualizarOrden(1, { estado_operativo: 'EN_PREPARACION' });
+      const resultado = await ordenService.actualizarOrden(1, { estado_operativo: 'EN_PROCESO' });
 
-      expect(resultado.estado_operativo).toBe('EN_PREPARACION');
+      expect(resultado.estado_operativo).toBe('EN_PROCESO');
     });
 
     // ❌ CASOS DE ERROR
