@@ -1,5 +1,5 @@
 export type TipoOrden = string;
-export type EstadoOperativo = 'NUEVO' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO';
+export type EstadoOperativo = 'NUEVO' | 'EN_PROCESO' | 'ENTREGADO' | 'CANCELADO' | 'OCULTO';
 export type EstadoFinanciero = 'SIN_PAGAR' | 'PAGADO' | 'REEMBOLSADO';
 
 export interface OrdenDto {
@@ -40,6 +40,7 @@ export interface OrdenListItem {
   numero_orden: string;
   tipo_orden: TipoOrden;
   estado_operativo: EstadoOperativo;
+  estado_financiero: EstadoFinanciero;
   total: number;
   fecha_apertura: Date;
   fecha_cerrado?: Date | null;

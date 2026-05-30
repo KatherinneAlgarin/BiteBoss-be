@@ -85,8 +85,8 @@ export function validateActualizarOrden(body: any): { data?: ActualizarOrdenDto;
     return { error: 'El ID de mesa debe ser un número.' };
   }
 
-  if (estado_operativo && !['NUEVO', 'EN_PROCESO', 'ENTREGADO', 'CANCELADO'].includes(estado_operativo)) {
-    return { error: 'El estado operativo debe ser uno de: NUEVO, EN_PROCESO, ENTREGADO, CANCELADO.' };
+  if (estado_operativo && !['NUEVO', 'EN_PROCESO', 'ENTREGADO', 'CANCELADO', 'OCULTO'].includes(estado_operativo)) {
+    return { error: 'El estado operativo debe ser uno de: NUEVO, EN_PROCESO, ENTREGADO, CANCELADO, OCULTO.' };
   }
 
   if (nombre_cliente !== undefined && (typeof nombre_cliente !== 'string' || nombre_cliente.trim().length === 0)) {

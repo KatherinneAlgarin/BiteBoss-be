@@ -145,6 +145,7 @@ export class OrdenService {
         nombre_cliente,
         apellido_cliente,
         estado_operativo,
+        estado_financiero,
         id_usuario,
         id_sucursal_tipo_orden,
         sucursal_tipo_orden!inner (
@@ -214,6 +215,7 @@ export class OrdenService {
       numero_orden: item.id_pedido.toString(),
       tipo_orden: (item.sucursal_tipo_orden as any)?.tipo_orden?.nombre || 'unknown',
       estado_operativo: item.estado_operativo,
+      estado_financiero: (item as any).estado_financiero,
       total: item.total,
       fecha_apertura: item.fecha_apertura,
       fecha_cerrado: (item as any).fecha_cerrado ?? null,
@@ -290,7 +292,7 @@ export class OrdenService {
 
     if (dto.estado_operativo) {
       updateData.estado_operativo = dto.estado_operativo;
-      if (['ENTREGADO', 'CANCELADO'].includes(dto.estado_operativo)) {
+      if (['ENTREGADO', 'CANCELADO', 'OCULTO'].includes(dto.estado_operativo)) {
         updateData.fecha_cerrado = new Date();
       }
     }

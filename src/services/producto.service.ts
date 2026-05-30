@@ -554,7 +554,7 @@ export class ProductoService {
       const estadoPedido = String(pedido?.estado_operativo ?? '').toUpperCase();
 
       if (!estadoPedido) return true;
-      return !['CANCELADO', 'ENTREGADO', 'PAGADO'].includes(estadoPedido);
+      return !['CANCELADO', 'ENTREGADO', 'OCULTO', 'PAGADO'].includes(estadoPedido);
     });
 
     const total = activos.length;
