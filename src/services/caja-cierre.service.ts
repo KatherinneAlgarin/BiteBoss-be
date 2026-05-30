@@ -1,6 +1,7 @@
 import supabase from '../config/supabase';
 import { AppError } from '../helpers/app-error';
 import type {
+  CajeroSesionActivaItem,
   CajaCierreListadoItem,
   CajaMetodoResumen,
   CajaProductoResumen,
@@ -25,6 +26,45 @@ type CajaSesionRow = {
 };
 
 export class CajaCierreService {
+  async listarCajerosConSesionActiva(id_sucursal: number): Promise<CajeroSesionActivaItem[]> {
+    const { data, error } = await supabase
+      .from('caja_sesion')
+      .select(`
+        id_caja_sesion,
+        id_sucursal,
+        id_usuario_cajero,
+        fecha_apertura,
+        cajero:usuario!id_usuario_cajero(nombre)
+      `)
+      .eq('id_sucursal', id_sucursal)
+      .eq('estado', 'ABIERTA')
+      .order('fecha_apertura', { ascending: false });
+
+    if (error) {
+      throw new AppError('No se pudo listar cajeros con sesión de caja activa', 500);
+    }
+
+    const sesiones = (data ?? []) as any[];
+    const vistos = new Set<number>();
+    const resultado: CajeroSesionActivaItem[] = [];
+
+    for (const sesion of sesiones) {
+      const id_usuario_cajero = Number(sesion.id_usuario_cajero);
+      if (vistos.has(id_usuario_cajero)) continue;
+
+      vistos.add(id_usuario_cajero);
+      resultado.push({
+        id_usuario_cajero,
+        cajero_nombre: String(sesion.cajero?.nombre ?? 'Cajero'),
+        id_sucursal: Number(sesion.id_sucursal),
+        id_caja_sesion: Number(sesion.id_caja_sesion),
+        fecha_apertura: String(sesion.fecha_apertura),
+      });
+    }
+
+    return resultado;
+  }
+
   private async validarNoHayCuentasAbiertasSinPagar(id_sucursal: number, id_usuario: number): Promise<void> {
     const { data, error } = await supabase
       .from('pedido')

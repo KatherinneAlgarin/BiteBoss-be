@@ -4,7 +4,79 @@ import type { OrdenDto, OrdenDetalleDto, OrdenListItem, ActualizarOrdenDto, Actu
 
 export class OrdenService {
 
-  async crearOrden(dto: CrearOrdenDto, id_usuario: number): Promise<OrdenDto & { detalles: OrdenDetalleDto[] }> {
+  private normalizeRole(role: string | undefined): string {
+    return (role ?? '').trim().toUpperCase();
+  }
+
+  private async validarCajeroAsignadoConCajaAbierta(id_usuario_cajero: number, id_sucursal: number): Promise<void> {
+    const { data: usuarioData, error: usuarioError } = await supabase
+      .from('usuario')
+      .select('id_usuario, activo')
+      .eq('id_usuario', id_usuario_cajero)
+      .single();
+
+    if (usuarioError || !usuarioData || (usuarioData as any).activo === false) {
+      throw new AppError('El cajero asignado no existe o está inactivo', 400);
+    }
+
+    const { data: asignaciones, error: asignacionError } = await supabase
+      .from('usuario_sucursal')
+      .select('id_usuario, rol:rol!inner(nombre)')
+      .eq('id_usuario', id_usuario_cajero)
+      .eq('id_sucursal', id_sucursal);
+
+    if (asignacionError) {
+      throw new AppError('No se pudo validar la asignación del cajero', 500);
+    }
+
+    const tieneRolCajeroEnSucursal = (asignaciones ?? []).some((asignacion: any) => {
+      const rol = String(asignacion?.rol?.nombre ?? '').trim().toUpperCase();
+      return rol === 'CAJERO';
+    });
+
+    if (!tieneRolCajeroEnSucursal) {
+      throw new AppError('El usuario asignado debe ser cajero de la misma sucursal', 400);
+    }
+
+    const { data: cajaSesion, error: cajaSesionError } = await supabase
+      .from('caja_sesion')
+      .select('id_caja_sesion')
+      .eq('id_usuario_cajero', id_usuario_cajero)
+      .eq('id_sucursal', id_sucursal)
+      .eq('estado', 'ABIERTA')
+      .order('fecha_apertura', { ascending: false })
+      .limit(1);
+
+    if (cajaSesionError) {
+      throw new AppError('No se pudo validar la sesión de caja del cajero asignado', 500);
+    }
+
+    if ((cajaSesion ?? []).length === 0) {
+      throw new AppError('El cajero asignado no tiene sesión de caja abierta', 409);
+    }
+  }
+
+  async crearOrden(
+    dto: CrearOrdenDto,
+    id_usuario: number,
+    actor?: { rol?: string; id_sucursal?: number }
+  ): Promise<OrdenDto & { detalles: OrdenDetalleDto[] }> {
+    const role = this.normalizeRole(actor?.rol);
+    let idUsuarioPedido = id_usuario;
+
+    if (role === 'MESERO') {
+      if (!dto.id_usuario_asignado) {
+        throw new AppError('Debes asignar el pedido a un cajero', 400);
+      }
+
+      if (actor?.id_sucursal && Number(actor.id_sucursal) !== Number(dto.id_sucursal)) {
+        throw new AppError('Solo puedes crear pedidos en tu sucursal', 403);
+      }
+
+      await this.validarCajeroAsignadoConCajaAbierta(dto.id_usuario_asignado, dto.id_sucursal);
+      idUsuarioPedido = dto.id_usuario_asignado;
+    }
+
     const { data: tipoOrdenData, error: tipoOrdenError } = await supabase
       .from('tipo_orden')
       .select('id_tipo_orden, requiere_mesa')
@@ -32,7 +104,7 @@ export class OrdenService {
     }
 
     const pedidoPayload = {
-      id_usuario,
+      id_usuario: idUsuarioPedido,
       total: 0,
       id_sucursal_tipo_orden: sucursalTipoData.id_sucursal_tipo_orden,
       id_sucursal: dto.id_sucursal,

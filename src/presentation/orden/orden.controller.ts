@@ -15,7 +15,10 @@ export class OrdenController {
 
     try {
       const id_usuario = req.usuario!.id_usuario!;
-      const orden = await this.ordenService.crearOrden(data!, id_usuario);
+      const orden = await this.ordenService.crearOrden(data!, id_usuario, {
+        rol: req.usuario?.rol,
+        id_sucursal: req.usuario?.id_sucursal,
+      });
       res.status(201).json(orden);
     } catch (err) {
       if (err instanceof AppError) {

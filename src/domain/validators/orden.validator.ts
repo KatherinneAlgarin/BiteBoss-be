@@ -1,7 +1,7 @@
 import { EstadoOperativo, EstadoFinanciero, CrearOrdenDetalleDto, CrearOrdenDto, ActualizarOrdenDto, ActualizarOrdenDetalleDto } from '../interfaces/orden.interface';
 
 export function validateCrearOrden(body: any): { data?: CrearOrdenDto; error?: string } {
-  const { id_sucursal, tipo_orden, id_mesa, nombre_cliente, apellido_cliente, detalles } = body ?? {};
+  const { id_sucursal, tipo_orden, id_mesa, id_usuario_asignado, nombre_cliente, apellido_cliente, detalles } = body ?? {};
 
   if (typeof id_sucursal !== 'number' || id_sucursal <= 0) {
     return { error: 'La sucursal es requerida y debe ser un número válido.' };
@@ -13,6 +13,10 @@ export function validateCrearOrden(body: any): { data?: CrearOrdenDto; error?: s
 
   if (id_mesa !== undefined && (typeof id_mesa !== 'number' || id_mesa <= 0)) {
     return { error: 'El ID de mesa debe ser un número positivo.' };
+  }
+
+  if (id_usuario_asignado !== undefined && (typeof id_usuario_asignado !== 'number' || id_usuario_asignado <= 0)) {
+    return { error: 'El usuario asignado debe ser un número positivo.' };
   }
 
   if (typeof nombre_cliente !== 'string' || nombre_cliente.trim().length === 0) {
@@ -39,6 +43,7 @@ export function validateCrearOrden(body: any): { data?: CrearOrdenDto; error?: s
       id_sucursal,
       tipo_orden: tipo_orden.trim(),
       ...(id_mesa !== undefined && { id_mesa }),
+      ...(id_usuario_asignado !== undefined && { id_usuario_asignado }),
       nombre_cliente: nombre_cliente.trim(),
       apellido_cliente: apellido_cliente.trim(),
       detalles: detalles.map((detalle: any) => ({

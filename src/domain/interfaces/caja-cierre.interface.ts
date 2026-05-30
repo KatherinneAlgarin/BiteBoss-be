@@ -61,3 +61,11 @@ export interface CajaCierreListadoItem {
   motivo_rechazo?: string | null;
   resumen?: CajaResumen | null;
 }
+
+export interface CajeroSesionActivaItem {
+  id_usuario_cajero: number;
+  cajero_nombre: string;
+  id_sucursal: number;
+  id_caja_sesion: number;
+  fecha_apertura: string;
+}

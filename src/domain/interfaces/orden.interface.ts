@@ -68,6 +68,7 @@ export interface CrearOrdenDto {
   id_sucursal: number;
   tipo_orden: string;
   id_mesa?: number;
+  id_usuario_asignado?: number;
   nombre_cliente: string;
   apellido_cliente: string;
   detalles: CrearOrdenDetalleDto[];

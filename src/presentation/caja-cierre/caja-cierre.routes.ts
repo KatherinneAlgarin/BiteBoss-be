@@ -11,6 +11,7 @@ export class CajaCierreRoutes {
     router.use(authenticate);
 
     router.get('/sesion-activa', authorizeRoles('admin', 'cajero'), (req, res) => controller.obtenerSesionActiva(req, res));
+    router.get('/cajeros-activos', authorizeRoles('admin', 'gerente', 'mesero'), (req, res) => controller.listarCajerosActivos(req, res));
     router.post('/iniciar', authorizeRoles('admin', 'cajero'), (req, res) => controller.iniciarSesion(req, res));
 
     router.get('/actual', authorizeRoles('admin', 'cajero'), (req, res) => controller.obtenerResumenActual(req, res));

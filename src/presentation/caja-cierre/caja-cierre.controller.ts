@@ -5,6 +5,26 @@ import { CajaCierreService } from '../../services/caja-cierre.service';
 export class CajaCierreController {
   constructor(private readonly cajaCierreService = new CajaCierreService()) {}
 
+  async listarCajerosActivos(req: Request, res: Response): Promise<void> {
+    try {
+      const id_sucursal = req.usuario?.id_sucursal;
+
+      if (!id_sucursal) {
+        res.status(401).json({ mensaje: 'Usuario sin contexto de sucursal' });
+        return;
+      }
+
+      const cajeros = await this.cajaCierreService.listarCajerosConSesionActiva(id_sucursal);
+      res.json(cajeros);
+    } catch (err) {
+      if (err instanceof AppError) {
+        res.status(err.statusCode).json({ mensaje: err.message });
+        return;
+      }
+      res.status(500).json({ mensaje: 'Error interno del servidor' });
+    }
+  }
+
   async obtenerSesionActiva(req: Request, res: Response): Promise<void> {
     try {
       const id_usuario = req.usuario?.id_usuario;
