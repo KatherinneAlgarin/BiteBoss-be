@@ -1,52 +1,15 @@
 import { Request, Response } from 'express';
 import { OrdenService } from '../../services/orden.service';
-import { validateCrearOrden, validateActualizarOrden, validateCrearOrdenDetalle, validateActualizarOrdenDetalle } from '../../domain/validators/orden.validator';
+import { validateActualizarOrden, validateCrearOrdenDetalle, validateActualizarOrdenDetalle } from '../../domain/validators/orden.validator';
 import { AppError } from '../../helpers/app-error';
 
 export class OrdenController {
   constructor(private readonly ordenService = new OrdenService()) {}
 
-  async crearOrden(req: Request, res: Response): Promise<void> {
-    const { data, error } = validateCrearOrden(req.body);
-    if (error) {
-      res.status(400).json({ mensaje: error });
-      return;
-    }
-
-    const actorRol = String(req.usuario?.rol ?? '').toUpperCase();
-    const idSucursal = actorRol === 'ADMIN'
-      ? data!.id_sucursal ?? req.usuario?.id_sucursal
-      : req.usuario?.id_sucursal;
-
-    if (!idSucursal) {
-      res.status(400).json({ mensaje: 'No se pudo determinar la sucursal del pedido.' });
-      return;
-    }
-
-    try {
-      const orden = await this.ordenService.crearOrden(
-        { ...data!, id_sucursal: idSucursal },
-        { id_usuario: req.usuario?.id_usuario, id_sucursal: idSucursal }
-      );
-      res.status(201).json(orden);
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
-
   async listarOrdenes(req: Request, res: Response): Promise<void> {
     try {
-      const { estado, id_sucursal: idSucursalQuery } = req.query;
-      const actorRol = String(req.usuario?.rol ?? '').toUpperCase();
-      const querySucursal = idSucursalQuery ? Number(idSucursalQuery) : undefined;
-      const id_sucursal = actorRol === 'ADMIN' && querySucursal && querySucursal > 0
-        ? querySucursal
-        : req.usuario?.id_sucursal;
-
+      const { estado } = req.query;
+      const id_sucursal = req.usuario?.id_sucursal;
       const ordenes = await this.ordenService.listarOrdenes(id_sucursal, estado as string);
       res.json(ordenes);
     } catch (err) {
@@ -99,9 +62,7 @@ export class OrdenController {
     }
 
     try {
-      const orden = await this.ordenService.actualizarOrden(id_pedido, data!, {
-        id_usuario: req.usuario?.id_usuario,
-      });
+      const orden = await this.ordenService.actualizarOrden(id_pedido, data!);
       res.json(orden);
     } catch (err) {
       if (err instanceof AppError) {
@@ -198,26 +159,6 @@ export class OrdenController {
     try {
       await this.ordenService.removerDetalleOrden(id_detalle);
       res.status(204).send();
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.statusCode).json({ mensaje: err.message });
-        return;
-      }
-      res.status(500).json({ mensaje: 'Error interno del servidor' });
-    }
-  }
-
-  async obtenerHistorialEstados(req: Request, res: Response): Promise<void> {
-    const { id } = req.params;
-    const id_pedido = parseInt(id as string, 10);
-    if (isNaN(id_pedido)) {
-      res.status(400).json({ mensaje: 'ID de pedido inválido' });
-      return;
-    }
-
-    try {
-      const historial = await this.ordenService.obtenerHistorialEstados(id_pedido);
-      res.json(historial);
     } catch (err) {
       if (err instanceof AppError) {
         res.status(err.statusCode).json({ mensaje: err.message });

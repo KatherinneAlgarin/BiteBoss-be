@@ -1,5 +1,5 @@
 export type TipoOrden = string;
-export type EstadoOperativo = 'ABIERTO' | 'POR_COBRAR' | 'CERRADO' | 'CANCELADO' | 'FINALIZADO';
+export type EstadoOperativo = 'ABIERTO' | 'EN_PREPARACION' | 'LISTO' | 'ENTREGADO' | 'CANCELADO';
 export type EstadoFinanciero = 'SIN_PAGAR' | 'PAGADO' | 'REEMBOLSADO';
 
 export interface OrdenDto {
@@ -11,7 +11,6 @@ export interface OrdenDto {
   estado_operativo: EstadoOperativo;
   estado_financiero: EstadoFinanciero;
   fecha_apertura: Date;
-  fecha_cerrado?: Date;
   nombre_cliente: string;
   apellido_cliente: string;
   numero_orden?: string; // Calculated field
@@ -43,17 +42,9 @@ export interface OrdenListItem {
   estado_operativo: EstadoOperativo;
   total: number;
   fecha_apertura: Date;
-  fecha_cerrado?: Date;
   usuario_nombre?: string;
   mesa_numero?: number;
   nombre_cliente: string;
-  apellido_cliente?: string;
-  detalles?: Array<{
-    id_producto: number;
-    nombre_producto?: string;
-    cantidad: number;
-    nota?: string;
-  }>;
 }
 
 export interface CrearOrdenDetalleDto {
@@ -74,26 +65,4 @@ export interface ActualizarOrdenDetalleDto {
   cantidad?: number;
   nota?: string;
   estado_linea?: string;
-}
-
-export interface CrearOrdenDto {
-  id_sucursal?: number;
-  tipo_orden: TipoOrden;
-  id_mesa?: number;
-  nombre_cliente?: string;
-  apellido_cliente?: string;
-  detalles: CrearOrdenDetalleDto[];
-}
-
-export interface OrdenConDetallesDto extends OrdenDto {
-  detalles: OrdenDetalleDto[];
-}
-
-export interface HistorialEstadoOrdenDto {
-  id_auditoria: number;
-  estado_anterior: EstadoOperativo | null;
-  estado_nuevo: EstadoOperativo | null;
-  creado_en: Date;
-  id_usuario?: number;
-  usuario_nombre?: string | null;
 }

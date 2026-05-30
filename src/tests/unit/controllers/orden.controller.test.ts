@@ -32,7 +32,7 @@ describe('OrdenController', () => {
     };
     controller = new OrdenController(mockOrdenService);
     res = { json: jest.fn(), status: jest.fn().mockReturnThis(), send: jest.fn() };
-    ordenValidator.validateActualizarOrden.mockReturnValue({ data: { estado_operativo: 'POR_COBRAR' }, error: null });
+    ordenValidator.validateActualizarOrden.mockReturnValue({ data: { estado_operativo: 'EN_PREPARACION' }, error: null });
     ordenValidator.validateCrearOrdenDetalle.mockReturnValue({ data: { id_producto: 1, cantidad: 2 }, error: null });
     ordenValidator.validateActualizarOrdenDetalle.mockReturnValue({ data: { cantidad: 3 }, error: null });
   });
@@ -112,9 +112,9 @@ describe('OrdenController', () => {
     });
 
     it('debería actualizar la orden', async () => {
-      const ordenActualizada = { ...ordenBase, estado_operativo: 'POR_COBRAR' };
+      const ordenActualizada = { ...ordenBase, estado_operativo: 'EN_PREPARACION' };
       mockOrdenService.actualizarOrden.mockResolvedValueOnce(ordenActualizada);
-      const req = { params: { id: '1' }, body: { estado_operativo: 'POR_COBRAR' } } as any;
+      const req = { params: { id: '1' }, body: { estado_operativo: 'EN_PREPARACION' } } as any;
       await controller.actualizarOrden(req, res);
       expect(res.json).toHaveBeenCalledWith(ordenActualizada);
     });

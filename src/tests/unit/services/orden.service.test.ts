@@ -166,81 +166,29 @@ describe('OrdenService', () => {
     // ✅ CASOS CORRECTOS
     it('debería actualizar el estado_operativo sin recalcular si no es necesario', async () => {
       // dto solo tiene estado_operativo -> llama recalcularTotales al final
-      const pedidoActualizado = {
-        id_pedido: 1,
-        id_usuario: 1,
-        id_sucursal: 1,
-        id_sucursal_tipo_orden: 1,
-        estado_operativo: 'POR_COBRAR',
-        estado_financiero: 'SIN_PAGAR',
-        fecha_apertura: new Date().toISOString(),
-        nombre_cliente: 'Ana',
-        apellido_cliente: 'Perez',
-        total: 50,
-      };
+      const pedidoActualizado = { id_pedido: 1, estado_operativo: 'EN_PREPARACION', total: 50 };
 
-      // 0. obtenerOrdenPorId (estado actual para validar transición)
-      mockSupabase.from().select().eq().single.mockResolvedValueOnce({
-        data: {
-          id_pedido: 1,
-          id_usuario_sucursal: 1,
-          id_sucursal_tipo_orden: 1,
-          id_tipo_pago: 1,
-          id_cliente: null,
-          fecha_apertura: new Date().toISOString(),
-          estado_operativo: 'ABIERTO',
-          total: 50,
-          mesa: null,
-          usuario_sucursal: { usuario: { nombre: 'Ana', apellido: 'Perez' } },
-          sucursal_tipo_orden: { tipo_orden: { nombre: 'Para llevar' } },
-          tipo_pago: { nombre: 'Efectivo' },
-          cliente: null,
-          sucursal: { id_sucursal: 1 },
-        },
+      // 1. update().eq().select().single()
+      mockSupabase.from().update().eq().select().single.mockResolvedValueOnce({
+        data: pedidoActualizado,
         error: null,
       });
-
-      // 1. update pedido (sin select)
-      mockSupabase.from().mockResult({ data: null, error: null });
       // 2. recalcularTotales -> obtenerDetallesOrden -> mockResult
       mockSupabase.from().mockResult({ data: [], error: null });
       // 3. recalcularTotales -> update total -> from().update().eq() -> mockResult
       mockSupabase.from().mockResult({ data: null, error: null });
-      // 4. obtenerOrdenPorId final
-      mockSupabase.from().select().eq().single.mockResolvedValueOnce({
-        data: pedidoActualizado,
-        error: null,
-      });
 
-      const resultado = await ordenService.actualizarOrden(1, { estado_operativo: 'POR_COBRAR' });
+      const resultado = await ordenService.actualizarOrden(1, { estado_operativo: 'EN_PREPARACION' });
 
-      expect(resultado.estado_operativo).toBe('POR_COBRAR');
+      expect(resultado.estado_operativo).toBe('EN_PREPARACION');
     });
 
     // ❌ CASOS DE ERROR
     it('debería lanzar AppError si falla el update', async () => {
-      // 0. obtenerOrdenPorId (estado actual para validar transición)
-      mockSupabase.from().select().eq().single.mockResolvedValueOnce({
-        data: {
-          id_pedido: 1,
-          id_usuario_sucursal: 1,
-          id_sucursal_tipo_orden: 1,
-          id_tipo_pago: 1,
-          id_cliente: null,
-          fecha_apertura: new Date().toISOString(),
-          estado_operativo: 'ABIERTO',
-          total: 50,
-          mesa: null,
-          usuario_sucursal: { usuario: { nombre: 'Ana', apellido: 'Perez' } },
-          sucursal_tipo_orden: { tipo_orden: { nombre: 'Para llevar' } },
-          tipo_pago: { nombre: 'Efectivo' },
-          cliente: null,
-          sucursal: { id_sucursal: 1 },
-        },
-        error: null,
+      mockSupabase.from().update().eq().select().single.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Error de BD' },
       });
-
-      mockSupabase.from().mockResult({ data: null, error: { message: 'Error de BD' } });
 
       await expect(ordenService.actualizarOrden(1, { estado_operativo: 'CANCELADO' })).rejects.toThrow(
         new AppError('Error al actualizar pedido', 500)
